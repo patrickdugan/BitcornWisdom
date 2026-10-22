@@ -103,8 +103,28 @@ async function launchProbe({ name, query, debugPort }) {
       format: 'png', captureBeyondViewport: false
     })).data;
     await writeFile(name + '-live-preview.png', Buffer.from(screenshot, 'base64'));
+    let historyLoaded = null;
+    if (name === 'coinbase' || name === 'binance-spot') {
+      const presses = name === 'coinbase' ? 100 : 290;
+      await send('Runtime.evaluate', {
+        expression: "(() => { const canvas = document.querySelector('#candle-chart'); canvas.focus();" +
+          " for (let i = 0; i < " + presses + "; i++) canvas.dispatchEvent(" +
+          "new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })); return true; })()",
+        returnByValue: true
+      });
+      historyLoaded = await until(async () => {
+        const result = await send('Runtime.evaluate', {
+          expression: "document.querySelector('#market-note')?.textContent || ''",
+          returnByValue: true
+        });
+        const note = result.result?.value || '';
+        const count = /Historical candles loaded:\s*(\d+)/.exec(note)?.[1];
+        return count ? Number(count) : null;
+      }, 10000).catch(() => null);
+    }
     return {
       name, elapsedMs: Date.now() - started, ...state,
+      historyLoaded,
       priceRendered: /^[0-9,.]+$/.test(state.lastPrice || ''),
       bookVerified: /checksum-verified|synchronized L2|snapshot-fed L2/.test(state.book || ''),
       screenshot: name + '-live-preview.png'

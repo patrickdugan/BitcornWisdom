@@ -113,3 +113,18 @@ test('source event contains venue, feed instrument and failover reason', () => {
     reason:'missing-live-candles',receivedAt:123
   });
 });
+
+test('an explicitly opted-in relay may be primary, while source identity stays bounded', () => {
+  const sources = feedPlan({
+    instrument:'BTC-USD-SPOT',interval:'1m',preferred:'relay:2',
+    relays:['https://relay-a.example/market','https://relay-b.example/market']
+  });
+  assert.deepEqual(sources.map(x=>x.id),
+    ['relay:2','kraken:BTCUSD','coinbase:BTCUSD','relay:1']);
+  assert.ok(sources.every(x=>x.instrument === 'BTC-USD-SPOT'));
+  assert.throws(()=>feedPlan({
+    instrument:'BTC-USD-SPOT',preferred:'relay:3',relays:['https://a.example']
+  }),/incompatible/);
+  assert.deepEqual(feedPlan({instrument:'BTC-USD-SPOT',preferred:'coinbase'}).map(x=>x.market),
+    ['coinbase','kraken']);
+});

@@ -92,7 +92,7 @@ test('depth REST fetch respects snapshot limits and supplied transport', async (
 });
 
 test('liquidity bins bound full-depth memory and aggregate same-bin notional', () => {
-  const book = { bids: [[100, 2], [100.001, 3]], asks: [[100.1, 4]] };
+  const book = { bids: [[100, 2], [100.001, 3]], asks: [[100.5, 4]] };
   const bins = binBookLevels(book, 100, .01, 20);
   assert.ok(bins.length <= 20);
   assert.ok(bins.length >= 2);

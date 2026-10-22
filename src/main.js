@@ -1,0 +1,319 @@
+import { BinanceStream, checkMarket, fetchCandles } from './binance.js';
+import { CandleChart } from './chart.js';
+import { formatCompact, formatPrice, INTERVALS } from './core.js';
+import { makeDemoCandles, makeDemoDepth, nextDemoCandle } from './demo.js';
+import { LiquidityHeatmap } from './heatmap.js';
+
+const el = (id) => document.getElementById(id);
+const STORAGE_KEY = 'bitcornwisdom:settings:v1';
+const DRAWINGS_PREFIX = 'bitcornwisdom:drawings:v1:';
+
+function readStored(key, fallback) {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored === null ? fallback : JSON.parse(stored);
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStored(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Storage may be disabled. */ }
+}
+
+const url = new URL(location.href);
+const previous = readStored(STORAGE_KEY, {});
+const settings = {
+  market: url.searchParams.get('market') || previous.market || 'spot',
+  symbol: (url.searchParams.get('symbol') || previous.symbol || 'BTCUSDT').toUpperCase(),
+  interval: url.searchParams.get('interval') || previous.interval || '5m',
+  demo: url.searchParams.has('demo') ? url.searchParams.get('demo') === '1' : Boolean(previous.demo),
+  showEMA: previous.showEMA ?? true,
+  showSMA: previous.showSMA ?? false,
+  logarithmic: previous.logarithmic ?? false
+};
+
+try { checkMarket(settings.market, settings.symbol, settings.interval); }
+catch { settings.market = 'spot'; settings.symbol = 'BTCUSDT'; settings.interval = '5m'; }
+
+const chart = new CandleChart(el('candle-chart'), {
+  onDrawingsChange: (drawings) => writeStored(drawingKey(), drawings)
+});
+const heatmap = new LiquidityHeatmap(el('liquidity-heatmap'));
+chart.setOptions({
+  showEMA: settings.showEMA, showSMA: settings.showSMA, logarithmic: settings.logarithmic
+});
+
+let session = 0;
+let stream = null;
+let controller = null;
+let demoTimer = null;
+let lastBookRender = 0;
+let lastTradeRender = 0;
+let trades = [];
+let demoTick = 0;
+
+function drawingKey() {
+  return DRAWINGS_PREFIX + [settings.market, settings.symbol, settings.interval].join(':');
+}
+
+function persist() {
+  writeStored(STORAGE_KEY, settings);
+  const next = new URL(location.href);
+  next.searchParams.set('market', settings.market);
+  next.searchParams.set('symbol', settings.symbol);
+  next.searchParams.set('interval', settings.interval);
+  if (settings.demo) next.searchParams.set('demo', '1');
+  else next.searchParams.delete('demo');
+  history.replaceState(null, '', next);
+}
+
+function updateButtons() {
+  for (const [id, active] of [
+    ['ema-toggle', settings.showEMA],
+    ['sma-toggle', settings.showSMA],
+    ['log-toggle', settings.logarithmic],
+    ['line-tool', chart.tool === 'line']
+  ]) {
+    const button = el(id);
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
+  el('demo-toggle').textContent = settings.demo ? 'Return to live feed' : 'Use offline demo';
+}
+
+function setStatus(status, description = '') {
+  const messages = {
+    starting: 'Starting…', connecting: 'Connecting feed…', live: 'LIVE',
+    disrupted: 'Feed interrupted', reconnecting: 'Reconnecting…',
+    loading: 'Loading history…', demo: 'OFFLINE DEMO', error: 'DATA ERROR'
+  };
+  const dot = el('status-dot');
+  dot.className = 'status-dot';
+  if (status === 'live') dot.classList.add('live');
+  else if (status === 'demo') dot.classList.add('demo');
+  else if (status === 'error' || status === 'disrupted') dot.classList.add('error');
+  el('connection-label').textContent = description || messages[status] || status;
+}
+
+function updateHeader() {
+  const quote = ['USDT', 'USDC', 'BUSD', 'BTC', 'USD', 'ETH'].find((q) =>
+    settings.symbol.endsWith(q) && settings.symbol.length > q.length);
+  const base = quote ? settings.symbol.slice(0, -quote.length) : settings.symbol;
+  el('pair-title').textContent = quote ? base + ' / ' + quote : settings.symbol;
+  el('market-subtitle').textContent = (settings.market === 'spot' ? 'BINANCE SPOT' : 'BINANCE USDⓈ-M') +
+    ' · UTC' + (settings.demo ? ' · DEMO DATA' : '');
+  el('book-pair').textContent = settings.symbol;
+  el('market-note').textContent = settings.demo ?
+    'Simulated prices · for interaction testing only' : 'Public Binance feeds · read only';
+}
+
+function setPrice(price) {
+  el('last-price').textContent = formatPrice(price);
+  const first = chart.candles[0], last = chart.candles.at(-1);
+  if (first && last && first.close > 0) {
+    const change = 100 * (last.close - first.open) / first.open;
+    const label = el('price-change');
+    label.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '% in loaded window';
+    label.style.color = change >= 0 ? '#8acc9d' : '#e2828b';
+  }
+}
+
+function showLoading(enabled) {
+  el('chart-loading').hidden = !enabled;
+  if (enabled) el('chart-error').hidden = true;
+}
+
+function showError(error) {
+  const box = el('chart-error');
+  box.textContent = (error?.message || String(error)) +
+    '. Check your exchange/network access, or use the offline demo below.';
+  box.hidden = false;
+  showLoading(false);
+  setStatus('error');
+}
+
+function clearTapeAndBook() {
+  trades = [];
+  lastTradeRender = 0;
+  lastBookRender = 0;
+  el('asks').textContent = 'Waiting for depth…';
+  el('bids').textContent = '';
+  el('spread').textContent = '—';
+  el('trades').textContent = 'Waiting for trades…';
+  heatmap.clear();
+}
+
+function renderBook(book) {
+  if (!book.bids.length || !book.asks.length) return;
+  const bids = book.bids.slice(0, 10);
+  const asks = book.asks.slice(0, 10);
+  const maxQty = Math.max(1e-10, ...bids.map((row) => row[1]), ...asks.map((row) => row[1]));
+  function rows(levels, side) {
+    return levels.map(([price, quantity]) => {
+      const width = Math.min(100, quantity / maxQty * 100).toFixed(2);
+      return '<div class="book-row ' + side + '"><span class="bar" style="width:' + width +
+        '%"></span><span>' + formatPrice(price) + '</span><span>' +
+        formatCompact(quantity) + '</span></div>';
+    }).join('');
+  }
+  el('asks').innerHTML = rows(asks.reverse(), 'ask');
+  el('bids').innerHTML = rows(bids, 'bid');
+  const spread = Math.max(0, book.asks[0][0] - book.bids[0][0]);
+  el('spread').textContent = formatPrice(spread) + ' (' +
+    (100 * spread / book.asks[0][0]).toFixed(4) + '%)';
+}
+
+function addTrade(trade) {
+  if (!Number.isFinite(trade.price) || !Number.isFinite(trade.quantity)) return;
+  trades.unshift(trade);
+  if (trades.length > 40) trades.pop();
+  const now = Date.now();
+  if (now - lastTradeRender < 280) return;
+  lastTradeRender = now;
+  el('trades').innerHTML = trades.slice(0, 30).map((row) =>
+    '<div class="trade-row ' + row.side + '"><span>' + formatPrice(row.price) +
+    '</span><span>' + formatCompact(row.quantity) + '</span><span>' +
+    new Date(row.time).toISOString().slice(11, 19) + '</span></div>').join('');
+}
+
+function stopFeed() {
+  session += 1;
+  if (controller) { controller.abort(); controller = null; }
+  if (stream) { stream.close(); stream = null; }
+  if (demoTimer !== null) { clearInterval(demoTimer); demoTimer = null; }
+}
+
+function startDemo(version) {
+  const candles = makeDemoCandles(settings.interval, 900);
+  if (version !== session) return;
+  chart.setCandles(candles, settings.interval);
+  el('chart-loading').hidden = true;
+  setStatus('demo');
+  setPrice(candles.at(-1).close);
+  updateHeader();
+  demoTick = 0;
+  const onTick = () => {
+    if (session !== version) return;
+    const candle = nextDemoCandle(chart.candles.at(-1), settings.interval, demoTick++);
+    chart.updateCandle(candle);
+    setPrice(candle.close);
+    const time = Date.now();
+    const book = makeDemoDepth(candle.close, time);
+    renderBook(book);
+    heatmap.ingest(book, candle.close);
+    addTrade({ time, price: candle.close, quantity: 0.02 + Math.abs(Math.sin(demoTick) * .8),
+      side: demoTick % 2 ? 'buy' : 'sell' });
+  };
+  onTick();
+  demoTimer = setInterval(onTick, 1100);
+}
+
+async function loadMarket() {
+  const version = session + 1;
+  stopFeed();
+  // stopFeed increments generation; use the resulting value.
+  const current = session;
+  el('market').value = settings.market;
+  el('symbol').value = settings.symbol;
+  el('timeframe').value = settings.interval;
+  updateHeader();
+  updateButtons();
+  persist();
+  clearTapeAndBook();
+  chart.setCandles([], settings.interval);
+  chart.setDrawings(readStored(drawingKey(), []));
+  el('last-price').textContent = '—';
+  el('price-change').textContent = 'OHLCV';
+  showLoading(true);
+  if (settings.demo) {
+    startDemo(current);
+    return;
+  }
+  setStatus('loading');
+  controller = new AbortController();
+  try {
+    const data = await fetchCandles(settings.market, settings.symbol, settings.interval, controller.signal);
+    if (session !== current) return;
+    if (data.length === 0) throw new Error('Exchange returned no candles');
+    chart.setCandles(data, settings.interval);
+    setPrice(data.at(-1).close);
+    showLoading(false);
+    stream = new BinanceStream(settings.market, settings.symbol, settings.interval, {
+      onStatus: (status) => { if (session === current) setStatus(status); },
+      onCandle: (candle) => {
+        if (session !== current) return;
+        chart.updateCandle(candle);
+        setPrice(candle.close);
+      },
+      onTrade: (trade) => { if (session === current) addTrade(trade); },
+      onDepth: (book) => {
+        if (session !== current) return;
+        const latest = chart.candles.at(-1);
+        heatmap.ingest(book, latest?.close ?? ((book.bids[0][0] + book.asks[0][0]) / 2));
+        if (Date.now() - lastBookRender > 240) {
+          lastBookRender = Date.now();
+          renderBook(book);
+        }
+      },
+      onError: (error) => console.warn('Market frame rejected:', error)
+    }).start();
+  } catch (error) {
+    if (session === current) showError(error);
+  } finally {
+    if (session === current) controller = null;
+  }
+}
+
+el('market-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const symbol = el('symbol').value.trim().toUpperCase();
+  const market = el('market').value;
+  try {
+    checkMarket(market, symbol, settings.interval);
+    settings.symbol = symbol;
+    settings.market = market;
+    loadMarket();
+  } catch (error) {
+    showError(error);
+  }
+});
+el('market').addEventListener('change', () => {
+  settings.market = el('market').value;
+  loadMarket();
+});
+el('timeframe').addEventListener('change', () => {
+  const interval = el('timeframe').value;
+  if (!INTERVALS.includes(interval)) return;
+  settings.interval = interval;
+  loadMarket();
+});
+
+for (const [id, key] of [
+  ['ema-toggle', 'showEMA'], ['sma-toggle', 'showSMA'], ['log-toggle', 'logarithmic']
+]) {
+  el(id).addEventListener('click', () => {
+    settings[key] = !settings[key];
+    chart.setOptions({ [key]: settings[key] });
+    persist();
+    updateButtons();
+  });
+}
+el('line-tool').addEventListener('click', () => {
+  chart.setTool(chart.tool === 'line' ? 'pan' : 'line');
+  updateButtons();
+  el('candle-chart').focus({ preventScroll: true });
+});
+el('undo-tool').addEventListener('click', () => chart.undoDrawing());
+el('reset-view').addEventListener('click', () => chart.resetView());
+el('demo-toggle').addEventListener('click', () => {
+  settings.demo = !settings.demo;
+  loadMarket();
+});
+window.addEventListener('beforeunload', () => {
+  stopFeed();
+  chart.destroy();
+  heatmap.destroy();
+});
+
+loadMarket();

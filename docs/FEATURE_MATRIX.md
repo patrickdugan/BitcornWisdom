@@ -1,4 +1,4 @@
-# v0.6 feature matrix
+# v0.7 feature matrix
 
 | Feature | Implementation | Follow-up |
 | --- | --- | --- |
@@ -12,7 +12,7 @@
 | Older chart candles | Cursor-paged Binance/Coinbase REST, up to 8,000 bars | Kraken venue-side limit; gap handling |
 | EMA/SMA, log scale | Yes | Further overlays |
 | RSI | Library calculation | RSI subplot |
-| Trend lines | Local persistence | Editing/Fibonacci |
+| Drawings | Editable trend lines, horizontal/vertical levels, Fibonacci 0–100%, local persistence, undo | Crosshair sync and geometry smoothing |
 | Binance Spot | Candles, raw trades, synchronized bounded L2 | Deep historical replay |
 | Binance Futures | Candles, aggTrade, U/u/pu synchronized L2 | Futures REST region checks |
 | Kraken Spot | REST/WS v2 candles, trade, CRC32-verified L2 | Larger book depth |

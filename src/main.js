@@ -62,7 +62,10 @@ function updateTimeframeOptions() {
 }
 
 const chart = new CandleChart(el('candle-chart'), {
-  onDrawingsChange: (drawings) => writeStored(drawingKey(), drawings)
+  onDrawingsChange: (drawings) => {
+    writeStored(drawingKey(), drawings);
+    updateDrawingControls();
+  }
 });
 let workspaceUI = null;
 const heatmap = new LiquidityHeatmap(el('liquidity-heatmap'), {
@@ -191,8 +194,7 @@ function updateButtons() {
     ['sma-toggle', settings.showSMA],
     ['log-toggle', settings.logarithmic],
     ['bb-toggle', settings.showBB],
-    ['rsi-toggle', settings.showRSI],
-    ['line-tool', chart.tool === 'line']
+    ['rsi-toggle', settings.showRSI]
   ]) {
     const button = el(id);
     button.classList.toggle('active', active);
@@ -200,6 +202,17 @@ function updateButtons() {
   }
   updateTimeframeOptions();
   el('demo-toggle').textContent = settings.demo ? 'Return to live feed' : 'Use offline demo';
+}
+
+function updateDrawingControls() {
+  el('drawing-count').textContent = String(chart.drawings.length);
+  el('drawing-tool').value = chart.tool;
+}
+
+function applyDrawingTool(tool) {
+  chart.setTool(tool);
+  updateDrawingControls();
+  el('candle-chart').focus({ preventScroll: true });
 }
 
 function setStatus(status, description = '') {
@@ -386,6 +399,7 @@ async function loadMarket() {
     }
   };
   chart.setDrawings(readStored(drawingKey(), []));
+  updateDrawingControls();
   el('last-price').textContent = '—';
   el('price-change').textContent = 'OHLCV';
   showLoading(true);
@@ -522,11 +536,8 @@ for (const [id, key] of [
 ]) {
   el(id).addEventListener('click', () => toggleIndicator(key));
 }
-el('line-tool').addEventListener('click', () => {
-  chart.setTool(chart.tool === 'line' ? 'pan' : 'line');
-  updateButtons();
-  el('candle-chart').focus({ preventScroll: true });
-});
+el('drawing-tool').addEventListener('change', () => applyDrawingTool(el('drawing-tool').value));
+el('delete-drawing').addEventListener('click', () => chart.removeSelected());
 el('undo-tool').addEventListener('click', () => chart.undoDrawing());
 el('reset-view').addEventListener('click', () => chart.resetView());
 el('demo-toggle').addEventListener('click', () => {
@@ -579,6 +590,6 @@ window.addEventListener('beforeunload', () => {
 
 workspaceUI = mountWorkspace({
   settings, chart, persist, loadMarket, validateSelection,
-  setIndicator: toggleIndicator
+  setIndicator: toggleIndicator, setDrawingTool: applyDrawingTool
 });
 loadMarket();

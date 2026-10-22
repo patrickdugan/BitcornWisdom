@@ -52,4 +52,5 @@ jobs:
           path: |
             bitcorn-liquidity-replay.png
             bitcorn-open-terminal.png
+            bitcorn-drawings.png
           if-no-files-found: ignore

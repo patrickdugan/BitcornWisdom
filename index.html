@@ -108,8 +108,18 @@
           <button class="tool" id="log-toggle" aria-pressed="false">LOG</button>
         </div>
         <div class="tool-group right-group">
-          <button class="tool" id="line-tool" aria-pressed="false" title="Draw trend line">╱ Line</button>
-          <button class="icon-tool" id="undo-tool" title="Undo last drawing (Ctrl+Z)" aria-label="Undo drawing">↶</button>
+          <label class="tool-label" for="drawing-tool">DRAW</label>
+          <select id="drawing-tool" aria-label="Chart drawing tool" title="Draw or edit chart annotations">
+            <option value="pan" selected>↔ Pan</option>
+            <option value="select">⌖ Select</option>
+            <option value="line">╱ Trend</option>
+            <option value="horizontal">─ Level</option>
+            <option value="vertical">│ Time</option>
+            <option value="fib">⌁ Fibonacci</option>
+          </select>
+          <span id="drawing-count" class="drawing-count" title="Saved drawings on this market and timeframe">0</span>
+          <button class="icon-tool" id="delete-drawing" title="Delete selected drawing (Delete)" aria-label="Delete selected drawing">✕</button>
+          <button class="icon-tool" id="undo-tool" title="Undo drawing change (Ctrl+Z)" aria-label="Undo drawing">↶</button>
           <button class="tool" id="reset-view" title="Return to latest price (Home)">Reset</button>
           <button class="icon-tool" id="depth-toggle" type="button" title="Show or hide order-book panel (B)" aria-label="Toggle depth panel" aria-pressed="true">▥</button>
           <button class="icon-tool" id="export-chart" type="button" title="Export chart as PNG" aria-label="Export chart image">↓</button>
@@ -122,7 +132,7 @@
       </div>
       <div class="chart-footer">
         <span id="market-note">Public exchange feeds · read only</span>
-        <span class="chart-legend"><span class="legend-up">●</span> BIDS <span class="legend-down">●</span> ASKS <span class="legend-guide">●</span> MARKET PRICE</span>
+        <span class="chart-legend"><span class="legend-up">●</span> BIDS <span class="legend-down">●</span> ASKS <span class="legend-guide">●</span> MARKET PRICE <span class="legend-guide">/</span> SHIFT SNAP</span>
       </div>
     </section>
 
@@ -177,7 +187,7 @@
       <button id="demo-toggle" class="text-link" type="button">Use offline demo</button>
       <span class="footer-split">/</span>
       <a href="https://github.com/patrickdugan/BitcornWisdom" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
-      <span class="build-tag">v0.6</span>
+      <span class="build-tag">v0.7</span>
     </div>
   </footer>
 

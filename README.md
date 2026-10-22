@@ -7,7 +7,7 @@
 
 Inspired by the feel of the original BitcoinWisdom charts. Built with a homegrown Canvas2D renderer, native browser JavaScript, and **zero npm dependencies**. No TradingView widget, Lightweight Charts package, Pine Script, broker login, or API key.
 
-## The open-market desk (v0.6)
+## The open-market desk (v0.7)
 
 The latest workspace has a three-panel terminal layout, with a customizable color theme and quick access to the markets you follow.
 
@@ -17,7 +17,7 @@ The latest workspace has a three-panel terminal layout, with a customizable colo
 | Volume, EMA 20, SMA 50 | Local favorites and watchlist | Kraken Spot and Coinbase Exchange |
 | Bollinger Bands 20 / 2σ, RSI 14 pane | Market presets, keyboard-first shortcuts | Live trade tape and bounded L2 book |
 | Linear / logarithmic price axis | Noir, Afterhours, Verdigris themes | Kraken CRC32 and Binance sequence checks |
-| Crosshair, saved trend lines | Collapsible market and order-book panels | Binned liquidity heatmap with local replay |
+| Crosshair, editable trend/price/time/Fibonacci annotations | Collapsible market and order-book panels | Binned liquidity heatmap with local replay |
 | PNG chart export | Direct URL-addressable pairs and intervals | IndexedDB sample retention and replay |
 
 ### Run it in one command
@@ -32,7 +32,7 @@ Open http://127.0.0.1:5173/ for public market feeds. Open http://127.0.0.1:5173/
 
     npm run check          # syntax checks and deterministic unit tests
     npm run smoke          # headless Chrome demo hydration
-    npm run smoke:archive  # IndexedDB, replay and workspace UI smoke
+    npm run smoke:archive  # IndexedDB, replay, workspace UI and drawing interactions
     npm run probe:live     # optional public exchange reachability
     npm run browser:live   # optional live Chrome integration
 
@@ -50,12 +50,14 @@ Static hosting also works: index.html uses relative asset paths, so the site can
 | Up / Down arrows (with chart focused) | Zoom |
 | Mouse wheel over chart | Zoom at cursor |
 | Home (with chart focused) | Reset chart view |
-| Ctrl+Z / Cmd+Z (with chart focused) | Undo latest trend line |
+| Ctrl+Z / Cmd+Z (with chart focused) | Undo the last drawing addition, movement or deletion |
+| Delete / Backspace (with chart focused) | Remove selected annotation |
+| D / L / H / V / F | Select / trend / horizontal / vertical / Fibonacci drawing tool |
 | Escape | Cancel pending drawing / dismiss command deck |
 
 Commands include market jumps, 1m–1d timeframe changes, indicators, palette selection, starring markets, workspace panels, and chart export. You can still type arbitrary supported exchange symbols into the top market form. A watchlist shortcut opens the selected market; inactive favorites do not maintain background price subscriptions.
 
-Theme, favorite markets, chart indicators, layout preferences and market/timeframe drawings persist locally. You can run the terminal without accounts or cookies.
+Theme, favorite markets, chart indicators, layout preferences and market/timeframe drawings persist locally. The drawing toolbar adds a selection tool for moving annotations, horizontal price levels, vertical time markers and Fibonacci retracements. Hold **Shift** near a candle's OHLC to snap an anchor to that price. Undo also restores edits and deletions. See [Drawing tools](docs/DRAWINGS.md). You can run the terminal without accounts or cookies.
 
 ## Market feeds and limits
 
@@ -90,7 +92,7 @@ The core remains browser-native JavaScript, with a small Node static server for 
 
 ## What we're building toward
 
-BitcornWisdom is a **crypto-first TradingView alternative in progress**. Current features cover chart navigation, basic technical analysis and market microstructure. Planned work includes editable Fibonacci drawings, multi-chart layouts, more indicators, portable workspace exports, alerts, additional venues, and optional open plugin interfaces.
+BitcornWisdom is a **crypto-first TradingView alternative in progress**. Current features cover chart navigation, basic technical analysis, editable drawing annotations and market microstructure. Planned work includes multi-chart layouts, configurable studies, portable workspace exports, alerts, additional venues, and optional open plugin interfaces.
 
 See [product direction](docs/PRODUCT.md), [feature matrix](docs/FEATURE_MATRIX.md) and [architecture](docs/ARCHITECTURE.md). For contributors, start with [CONTRIBUTING.md](CONTRIBUTING.md).
 

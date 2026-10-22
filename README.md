@@ -35,6 +35,23 @@ liquidity replay remain on the classic desk. [Embed and relay
 documentation](docs/EMBED.md) includes SDK/React snippets, relay examples,
 security boundaries and QA instructions.
 
+### Third-party app QA and a self-hosted relay
+
+The v0.11.1 integration pass adds real **cross-origin ESM/iframe tests** and
+a [runnable, read-only Kraken relay](examples/relay-node.mjs). Unlike a mere
+second CDN origin, the relay exposes typed OHLCV over its own HTTP/WebSocket
+endpoints. It still inherits Kraken's upstream trust and availability.
+
+```sh
+npm run relay:kraken    # local HTTP + WebSocket on 127.0.0.1:8722
+npm run smoke:cross-origin
+```
+
+Use `preferred=relay:1` alongside an opted-in `relay` URL to place your
+own relay ahead of the compatible native sources. Each source remains
+explicitly identified, and initial REST prices display `HISTORY` until a
+real WebSocket candle arrives. See [Embed SDK](docs/EMBED.md).
+
 ## The open-market desk (v0.8)
 
 The classic workspace has a three-panel terminal layout with customizable themes and a local watchlist. The new [multi-chart desk](grid.html) opens one, two, or four independent market charts simultaneously, with optional crosshair and pan/zoom synchronization.
@@ -63,6 +80,7 @@ Open http://127.0.0.1:5173/ for public market feeds. Open http://127.0.0.1:5173/
     npm run smoke:grid     # 1/2/4 chart offline grid hydration
     npm run smoke:motion   # actual Chrome depth-pixel, rendering, motion preference and book-row test
     npm run smoke:embed    # two SDK iframes, postMessage guards and source identity
+    npm run smoke:cross-origin # independent host origin loads and controls the SDK
     npm run smoke:archive  # IndexedDB, replay, workspace UI and drawing interactions
     npm run probe:live     # optional public exchange reachability
     npm run browser:live   # optional live Chrome integration

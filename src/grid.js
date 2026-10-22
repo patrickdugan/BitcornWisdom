@@ -17,8 +17,9 @@ const initial = new URL(location.href);
 if (initial.searchParams.has('demo')) layout.demo = initial.searchParams.get('demo') === '1';
 const requestedMode = Number(initial.searchParams.get('mode'));
 if (initial.searchParams.has('mode') && GRID_MODES.includes(requestedMode)) layout.mode = requestedMode;
-let theme = normalTheme(localStorage.getItem('bitcornwisdom:grid:theme') ||
-  JSON.parse(localStorage.getItem('bitcornwisdom:settings:v1') || '{}')?.theme);
+let fallbackTheme = 'noir';
+try { fallbackTheme = JSON.parse(localStorage.getItem('bitcornwisdom:settings:v1') || '{}')?.theme; } catch {}
+let theme = normalTheme(localStorage.getItem('bitcornwisdom:grid:theme') || fallbackTheme);
 document.documentElement.dataset.theme = theme;
 byId('grid-theme').value = theme;
 byId('grid-mode').value = String(layout.mode);
@@ -75,8 +76,8 @@ function marketCandles(c, signal) {
 }
 function marketStream(c, callbacks) {
   const { market, symbol, interval } = c.selection;
-  if (market === 'kraken') return new KrakenStream(symbol, interval, callbacks);
-  if (market === 'coinbase') return new CoinbaseStream(symbol, interval, callbacks);
+  if (market === 'kraken') return new KrakenStream(symbol, interval, callbacks, undefined, {chartOnly:true});
+  if (market === 'coinbase') return new CoinbaseStream(symbol, interval, callbacks, undefined, {chartOnly:true});
   return new BinanceStream(market, symbol, interval, callbacks);
 }
 

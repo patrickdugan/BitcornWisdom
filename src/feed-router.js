@@ -1,4 +1,5 @@
 import { feedProvenance, normalizeCandle, normalizeHistory } from './feed-policy.js';
+import { INTERVAL_MS } from './core.js';
 
 // A single-owner feed session. Failover is deliberate and visible: only one
 // eligible provider may publish chart observations at a time.
@@ -34,6 +35,7 @@ export class FeedRouter {
     this.handle = null;
     this.timer = null;
     this.lastPacketAt = 0;
+    this.lastCandleTime = null;
     this.lastHeartbeatAt = 0;
     this.disruptedAt = null;
     this.attemptStartedAt = 0;
@@ -91,6 +93,7 @@ export class FeedRouter {
       this.index = index;
       this.attemptStartedAt = this.clock();
       this.lastPacketAt = 0;
+      this.lastCandleTime = null;
       this.lastHeartbeatAt = 0;
       this.disruptedAt = null;
       const selectedReason = step === 0 ? reason : 'source-error';
@@ -109,7 +112,20 @@ export class FeedRouter {
           if (!accepts()) return;
           try {
             const candle = normalizeCandle(row);
-            this.lastPacketAt = this.clock();
+            const now = this.clock();
+            const period = INTERVAL_MS[source.interval] || 60000;
+            // Repeated old snapshots must never keep a feed spuriously LIVE.
+            // The wall-clock bound applies only with a real Unix epoch clock,
+            // so deterministic injected clocks can test the router as a pure state machine.
+            if (now > 1000000000000 &&
+              (candle.time > now + period ||
+               candle.time < now - Math.max(this.staleMs * 4, period * 2)))
+              throw new RangeError('Stale or future-dated live candle');
+            if (this.lastCandleTime !== null &&
+                candle.time + period < this.lastCandleTime)
+              throw new RangeError('Out-of-order source candle replay');
+            this.lastCandleTime = Math.max(this.lastCandleTime ?? 0, candle.time);
+            this.lastPacketAt = now;
             this.disruptedAt = null;
             if (this.phase !== 'live') this.report('live', selectedReason);
             this.onCandle(candle, source);

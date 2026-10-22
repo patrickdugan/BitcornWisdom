@@ -4,7 +4,7 @@ import {
   toggleFavorite, isFavorite, searchPalette
 } from './workspace.js';
 
-export function mountWorkspace({ settings, chart, persist, loadMarket, validateSelection, setIndicator }) {
+export function mountWorkspace({ settings, chart, persist, loadMarket, validateSelection, setIndicator, setDrawingTool }) {
   const el = (id) => document.getElementById(id);
   const root = document.documentElement;
   const workspace = document.querySelector('.workspace');
@@ -185,6 +185,15 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
     { id: 'favorite', title: 'Star current market', detail: 'Save or remove pair from favorites', keywords: 'pin bookmark', run: () => favoriteAction() },
     { id: 'export', title: 'Export chart as PNG', detail: 'Save the currently visible Canvas chart', keywords: 'image screenshot download', run: saveChartImage },
     { id: 'reset', title: 'Reset chart view', detail: 'Return to latest candles', keywords: 'home scroll', run: () => chart.resetView() },
+    { id: 'select', title: 'Select drawing', detail: 'Click an annotation to edit its anchors', keywords: 'drawing edit move', run: () => setDrawingTool('select') },
+    { id: 'trend', title: 'Draw trend line', detail: 'Two clicks to anchor a line', keywords: 'drawing trend', run: () => setDrawingTool('line') },
+    { id: 'horizontal', title: 'Draw horizontal level', detail: 'Single click to place a price level', keywords: 'drawing price hline', run: () => setDrawingTool('horizontal') },
+    { id: 'vertical', title: 'Draw vertical marker', detail: 'Single click to mark a time', keywords: 'drawing time vline', run: () => setDrawingTool('vertical') },
+    { id: 'fibonacci', title: 'Draw Fibonacci retracement', detail: 'Two clicks; 0/23.6/38.2/50/61.8/78.6/100%', keywords: 'drawing fib retrace', run: () => setDrawingTool('fib') },
+    { id: 'delete-selected', title: 'Delete selected drawing', detail: 'Remove the current annotation', keywords: 'drawing remove', run: () => chart.removeSelected() },
+    { id: 'clear-drawings', title: 'Clear drawings for this chart', detail: 'Delete the current market/timeframe annotations', keywords: 'drawing erase all', run: () => {
+      if (chart.drawings.length && window.confirm('Delete all chart drawings on this market and timeframe?')) chart.clearDrawings();
+    } },
     { id: 'watchlist', title: 'Toggle watchlist panel', detail: 'Show or hide the left navigation', keywords: 'sidebar w', run: toggleWatchlist },
     { id: 'orderbook', title: 'Toggle order book panel', detail: 'Show or hide live depth and trades', keywords: 'sidebar b', run: toggleDepth },
     { id: 'ema', title: 'Toggle EMA 20', detail: 'Exponential moving average overlay', keywords: 'indicator', run: () => setIndicator('showEMA') },
@@ -340,6 +349,11 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
     if (event.key === '/') { event.preventDefault(); openPalette(); }
     else if (event.key.toLowerCase() === 'w') toggleWatchlist();
     else if (event.key.toLowerCase() === 'b') toggleDepth();
+    else if (event.key.toLowerCase() === 'd') setDrawingTool('select');
+    else if (event.key.toLowerCase() === 'l') setDrawingTool('line');
+    else if (event.key.toLowerCase() === 'h') setDrawingTool('horizontal');
+    else if (event.key.toLowerCase() === 'v') setDrawingTool('vertical');
+    else if (event.key.toLowerCase() === 'f') setDrawingTool('fib');
     else if (event.key === '?') { event.preventDefault(); openPalette('toggle'); }
   });
 

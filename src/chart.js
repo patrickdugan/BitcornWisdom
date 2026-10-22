@@ -1,6 +1,10 @@
 import { clamp, formatCompact, formatPrice, upsertCandle, INTERVAL_MS } from './core.js';
 import { ema, sma, rsi, bollingerBands } from './indicators.js';
 import { CHART_COLORS } from './workspace.js';
+import {
+  DRAWING_TOOLS, MAX_DRAWINGS, normalizeDrawings, makeDrawing,
+  drawingShapes, pickDrawing, moveDrawing
+} from './drawings.js';
 
 export function viewRange(length, plotWidth, barWidth, offsetBars, gap = 11) {
   if (!length) return { start: 0, end: -1 };
@@ -73,6 +77,8 @@ export class CandleChart {
     this.theme = 'noir';
     this.cachedIndicators = null;
     this.drawings = [];
+    this.undoStack = [];
+    this.selectedIndex = null;
     this.drawingAnchor = null;
     this.tool = 'pan';
     this.pointer = null;
@@ -195,18 +201,59 @@ export class CandleChart {
   }
 
   setDrawings(lines) {
-    this.drawings = Array.isArray(lines) ? lines.filter((d) =>
-      Number.isFinite(d?.a?.time) && Number.isFinite(d?.a?.price) &&
-      Number.isFinite(d?.b?.time) && Number.isFinite(d?.b?.price)) : [];
+    this.drawings = normalizeDrawings(lines);
+    this.undoStack = [];
+    this.selectedIndex = null;
     this.drawingAnchor = null;
     this.requestDraw();
   }
 
-  undoDrawing() {
-    if (this.drawingAnchor) this.drawingAnchor = null;
-    else this.drawings.pop();
+  snapshotDrawings() {
+    return this.drawings.map((d) => ({
+      type: d.type, a: { ...d.a }, b: { ...d.b }
+    }));
+  }
+
+  rememberDrawings(snapshot = this.snapshotDrawings()) {
+    this.undoStack.push(snapshot);
+    if (this.undoStack.length > 50) this.undoStack.shift();
+  }
+
+  emitDrawings() {
     this.onDrawingsChange(this.drawings);
     this.requestDraw();
+  }
+
+  undoDrawing() {
+    if (this.drawingAnchor) {
+      this.drawingAnchor = null;
+    } else if (this.undoStack.length) {
+      this.drawings = this.undoStack.pop();
+      this.selectedIndex = null;
+      this.emitDrawings();
+    } else {
+      this.requestDraw();
+    }
+    this.requestDraw();
+  }
+
+  removeSelected() {
+    if (!Number.isInteger(this.selectedIndex) ||
+        this.selectedIndex < 0 || this.selectedIndex >= this.drawings.length) return false;
+    this.rememberDrawings();
+    this.drawings.splice(this.selectedIndex, 1);
+    this.selectedIndex = null;
+    this.emitDrawings();
+    return true;
+  }
+
+  clearDrawings() {
+    if (!this.drawings.length) return;
+    this.rememberDrawings();
+    this.drawings = [];
+    this.selectedIndex = null;
+    this.drawingAnchor = null;
+    this.emitDrawings();
   }
 
   resetView() {
@@ -216,9 +263,12 @@ export class CandleChart {
   }
 
   setTool(tool) {
+    if (!DRAWING_TOOLS.includes(tool)) throw new RangeError('Unknown drawing tool');
     this.tool = tool;
+    this.drag = null;
     this.drawingAnchor = null;
-    this.canvas.style.cursor = tool === 'line' ? 'crosshair' : 'grab';
+    this.canvas.style.cursor = tool === 'pan' ? 'grab' :
+      tool === 'select' ? 'default' : 'crosshair';
     this.requestDraw();
   }
 
@@ -376,17 +426,52 @@ export class CandleChart {
       x: coordinates.x(this.timeToIndex(p.time)),
       y: prices.y(p.price)
     });
-    const drawLine = (a, b, alpha = 1) => {
-      const p = point(a), q = point(b);
-      ctx.globalAlpha = alpha;
-      ctx.strokeStyle = COLORS.drawing; ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
-      ctx.globalAlpha = 1;
+    const bounds = { left, right, top, bottom };
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left, top, right - left, bottom - top);
+    ctx.clip();
+    const paintDrawing = (drawing, selected = false, preview = false) => {
+      const shapes = drawingShapes(drawing, point, bounds);
+      ctx.save();
+      ctx.globalAlpha = preview ? .65 : 1;
+      ctx.lineWidth = selected ? 1.8 : 1.35;
+      ctx.strokeStyle = selected ? COLORS.last : COLORS.drawing;
+      if (preview) ctx.setLineDash([5, 4]);
+      for (const shape of shapes.lines) {
+        ctx.beginPath();
+        ctx.moveTo(shape.x1, shape.y1);
+        ctx.lineTo(shape.x2, shape.y2);
+        ctx.stroke();
+        if (shape.label) {
+          const tx = Math.max(left + 4, Math.min(right - 97, shape.x2 - 94));
+          const ty = Math.max(top + 10, Math.min(bottom - 10, shape.y1 - 7));
+          ctx.font = '10px ui-monospace, monospace';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = selected ? COLORS.last : COLORS.drawing;
+          ctx.fillText(shape.label + '  ' + formatPrice(shape.price), tx, ty);
+        }
+      }
+      if (selected || preview) {
+        ctx.fillStyle = COLORS.bg;
+        ctx.strokeStyle = COLORS.last;
+        for (const anchor of shapes.handles) {
+          ctx.beginPath();
+          ctx.arc(anchor.x, anchor.y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
     };
-    for (const drawing of this.drawings) drawLine(drawing.a, drawing.b);
+    for (let i = 0; i < this.drawings.length; i++)
+      paintDrawing(this.drawings[i], i === this.selectedIndex);
     if (this.drawingAnchor && this.pointer) {
-      drawLine(this.drawingAnchor, this.pointerToMarket(this.pointer.x, this.pointer.y), .8);
+      const draft = makeDrawing(this.drawingAnchor.type, this.drawingAnchor.a,
+        this.pointerToMarket(this.pointer.x, this.pointer.y));
+      if (draft) paintDrawing(draft, false, true);
     }
+    ctx.restore();
     ctx.restore();
 
     if (rsiTop !== null && indicators) {
@@ -500,9 +585,39 @@ export class CandleChart {
     return { time, price: frame.prices.price(y) };
   }
 
+  drawingFrame() {
+    const frame = this.frame || this.computeFrame();
+    return {
+      point: (p) => ({
+        x: frame.coordinates.x(this.timeToIndex(p.time)),
+        y: frame.prices.y(p.price)
+      }),
+      bounds: {
+        left: frame.plotLeft, right: frame.plotRight,
+        top: frame.priceTop, bottom: frame.priceBottom
+      }
+    };
+  }
+
+  snapPoint(x, y, shiftKey = false) {
+    const frame = this.frame || this.computeFrame();
+    const point = this.pointerToMarket(x, y);
+    if (!shiftKey) return point;
+    const index = Math.round(frame.coordinates.index(x));
+    const candle = this.candles[index];
+    if (!candle) return point;
+    const candidates = [candle.open, candle.high, candle.low, candle.close];
+    const nearest = candidates.map((price) => ({
+      price, delta: Math.abs(frame.prices.y(price) - y)
+    })).sort((a,b) => a.delta - b.delta)[0];
+    return nearest.delta <= 11 ? { time: candle.time, price: nearest.price } : point;
+  }
+
   pointerDown(event) {
     if (event.button === 2) {
-      if (this.drawingAnchor) { this.drawingAnchor = null; this.requestDraw(); }
+      this.drawingAnchor = null;
+      this.drag = null;
+      this.requestDraw();
       return;
     }
     if (event.button !== 0 || !this.candles.length) return;
@@ -510,16 +625,47 @@ export class CandleChart {
     const rect = this.canvas.getBoundingClientRect();
     const x = event.clientX - rect.left, y = event.clientY - rect.top;
     this.pointer = { x, y };
-    this.canvas.setPointerCapture(event.pointerId);
-    if (this.tool === 'line') {
-      const point = this.pointerToMarket(x, y);
-      if (this.drawingAnchor) {
-        this.drawings.push({ a: this.drawingAnchor, b: point });
+    const { point, bounds } = this.drawingFrame();
+    const priceArea = x >= bounds.left && x <= bounds.right &&
+      y >= bounds.top && y <= bounds.bottom;
+    if (!priceArea && this.tool !== 'pan') return;
+    this.canvas.setPointerCapture?.(event.pointerId);
+    const at = this.snapPoint(x, y, event.shiftKey);
+    if (this.tool === 'select') {
+      const hit = pickDrawing(this.drawings, point, bounds, x, y);
+      this.selectedIndex = hit ? hit.index : null;
+      if (hit) {
+        this.drag = {
+          kind: 'drawing', index: hit.index, part: hit.part,
+          origin: at, original: { ...this.drawings[hit.index],
+            a: { ...this.drawings[hit.index].a }, b: { ...this.drawings[hit.index].b } },
+          before: this.snapshotDrawings(), dirty: false
+        };
+        this.canvas.style.cursor = 'grabbing';
+      } else {
+        this.drag = { kind: 'pan', startX: x, offset: this.offsetBars };
+      }
+    } else if (['line', 'fib'].includes(this.tool)) {
+      if (this.drawingAnchor?.type === this.tool) {
+        const drawing = makeDrawing(this.tool, this.drawingAnchor.a, at);
+        if (drawing && this.drawings.length < MAX_DRAWINGS) {
+          this.rememberDrawings();
+          this.drawings.push(drawing);
+          this.selectedIndex = this.drawings.length - 1;
+          this.emitDrawings();
+        }
         this.drawingAnchor = null;
-        this.onDrawingsChange(this.drawings);
-      } else this.drawingAnchor = point;
+      } else this.drawingAnchor = { type: this.tool, a: at };
+    } else if (['horizontal', 'vertical'].includes(this.tool)) {
+      const drawing = makeDrawing(this.tool, at);
+      if (drawing && this.drawings.length < MAX_DRAWINGS) {
+        this.rememberDrawings();
+        this.drawings.push(drawing);
+        this.selectedIndex = this.drawings.length - 1;
+        this.emitDrawings();
+      }
     } else {
-      this.drag = { startX: x, offset: this.offsetBars };
+      this.drag = { kind: 'pan', startX: x, offset: this.offsetBars };
       this.canvas.style.cursor = 'grabbing';
     }
     this.requestDraw();
@@ -528,24 +674,52 @@ export class CandleChart {
   pointerMove(event) {
     const rect = this.canvas.getBoundingClientRect();
     this.pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-    if (this.drag) {
+    if (this.drag?.kind === 'drawing') {
+      const at = this.snapPoint(this.pointer.x, this.pointer.y, event.shiftKey);
+      const { origin, original, part, index } = this.drag;
+      let updated = null;
+      if (part === 'body') {
+        updated = moveDrawing(original, at.time - origin.time, at.price - origin.price);
+      } else if (original.type === 'horizontal') {
+        updated = makeDrawing('horizontal', { ...original.a, price: at.price });
+      } else if (original.type === 'vertical') {
+        updated = makeDrawing('vertical', { ...original.a, time: at.time });
+      } else if (part === 'a') {
+        updated = makeDrawing(original.type, at, original.b);
+      } else if (part === 'b') {
+        updated = makeDrawing(original.type, original.a, at);
+      }
+      if (updated) {
+        this.drawings[index] = updated;
+        this.drag.dirty = JSON.stringify(updated) !== JSON.stringify(original);
+      }
+    } else if (this.drag?.kind === 'pan') {
       const delta = (this.pointer.x - this.drag.startX) / this.barWidth;
       this.offsetBars = clamp(this.drag.offset + delta, -60, this.candles.length - 1 + this.gap);
     }
     const index = Math.round((this.frame || this.computeFrame()).coordinates.index(this.pointer.x));
     this.onHover(this.candles[index] || null);
-    if (this.drag) this.maybeNeedHistory();
+    if (this.drag?.kind === 'pan') this.maybeNeedHistory();
     this.requestDraw();
   }
 
   pointerUp() {
+    if (this.drag?.kind === 'drawing' && this.drag.dirty) {
+      this.rememberDrawings(this.drag.before);
+      this.emitDrawings();
+    }
     this.drag = null;
-    this.canvas.style.cursor = this.tool === 'line' ? 'crosshair' : 'grab';
+    this.canvas.style.cursor = this.tool === 'pan' ? 'grab' :
+      this.tool === 'select' ? 'default' : 'crosshair';
+    this.requestDraw();
   }
 
   pointerCancel() {
-    this.pointerUp();
+    if (this.drag?.kind === 'drawing' && this.drag.dirty)
+      this.drawings[this.drag.index] = this.drag.original;
+    this.drag = null;
     this.pointer = null;
+    this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : 'crosshair';
     this.requestDraw();
   }
 
@@ -565,7 +739,10 @@ export class CandleChart {
   }
 
   keyDown(event) {
-    if (event.key === 'Escape') this.drawingAnchor = null;
+    if (event.key === 'Escape') { this.drawingAnchor = null; this.selectedIndex = null; }
+    else if (event.key === 'Delete' || event.key === 'Backspace') {
+      this.removeSelected();
+    }
     else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
       this.undoDrawing();
     } else if (event.key === 'ArrowLeft') {

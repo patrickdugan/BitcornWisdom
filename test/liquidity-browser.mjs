@@ -129,6 +129,72 @@ async function browserRetention() {
   return { removedOld, removedExcess, afterCap: limited.length, afterErase: afterDelete.length };
 }
 
+function exerciseDrawings() {
+  const el = (id) => document.getElementById(id);
+  const canvas = el('candle-chart');
+  const select = el('drawing-tool');
+  // Synthetic PointerEvents don't have a native active pointer-capture ID.
+  canvas.setPointerCapture = () => {};
+  const rect = canvas.getBoundingClientRect();
+  const x = (fraction) => Math.floor(rect.width * fraction);
+  const point = (fraction, y) => ({
+    clientX: rect.left + x(fraction), clientY: rect.top + y
+  });
+  function choose(tool) {
+    select.value = tool;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    if (select.value !== tool) throw new Error('Tool selector failed: ' + tool);
+  }
+  function emit(type, fraction, y, extra = {}) {
+    canvas.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, pointerId: 2, pointerType: 'mouse',
+      button: 0, buttons: type === 'pointerup' ? 0 : 1,
+      ...point(fraction, y), ...extra
+    }));
+  }
+  function click(fraction, y) {
+    emit('pointerdown', fraction, y);
+    emit('pointerup', fraction, y);
+  }
+  const key = 'bitcornwisdom:drawings:v1:spot:BTCUSDT:5m';
+  const saved = () => JSON.parse(localStorage.getItem(key) || '[]');
+
+  choose('horizontal'); click(.40, 142);
+  choose('vertical'); click(.54, 205);
+  choose('fib'); click(.40, 235); click(.68, 320);
+  choose('line'); click(.34, 355); click(.61, 380);
+  if (el('drawing-count').textContent !== '4') throw new Error('Four annotations were not saved');
+  const before = saved();
+  if (before.map((d) => d.type).join(',') !== 'horizontal,vertical,fib,line') {
+    throw new Error('Unexpected drawing schema: ' + before.map((d) => d.type));
+  }
+
+  choose('select');
+  emit('pointerdown', .75, 142);
+  emit('pointermove', .75, 165);
+  emit('pointerup', .75, 165);
+  const moved = saved();
+  if (Math.abs(moved[0].a.price - before[0].a.price) < .01)
+    throw new Error('Horizontal price-level edit was not stored');
+  el('undo-tool').click();
+  const undone = saved();
+  if (Math.abs(undone[0].a.price - before[0].a.price) > 1e-9)
+    throw new Error('Drawing undo did not restore price');
+
+  emit('pointerdown', .75, 142);
+  emit('pointerup', .75, 142);
+  el('delete-drawing').click();
+  if (saved().length !== 3) throw new Error('Delete did not remove selected annotation');
+  el('undo-tool').click();
+  if (saved().length !== 4) throw new Error('Delete undo failed');
+  return {
+    count: saved().length, types: saved().map((d) => d.type),
+    edited: moved[0].a.price !== before[0].a.price,
+    undone: undone[0].a.price === before[0].a.price,
+    deletionUndo: saved().length === 4
+  };
+}
+
 function exerciseWorkspace() {
   const byId = (id) => document.getElementById(id);
   const before = byId('star-current').getAttribute('aria-pressed');
@@ -216,6 +282,12 @@ try {
   assert.ok(controls.markets > 0);
   assert.ok(controls.exportedCanvas);
   console.log('Open terminal controls: PASS ' + JSON.stringify(controls));
+  const drawings = await evaluate('(' + exerciseDrawings.toString() + ')()');
+  assert.equal(drawings.count, 4);
+  assert.equal(drawings.edited, true);
+  assert.equal(drawings.undone, true);
+  assert.equal(drawings.deletionUndo, true);
+  console.log('Chart drawing controls: PASS ' + JSON.stringify(drawings));
   assert.equal(await evaluate('(' + seedBrowserRows.toString() + ')()', true), 104);
 
   await send('Page.reload', { ignoreCache: true });
@@ -228,6 +300,9 @@ try {
   assert.equal(await evaluate("document.documentElement.dataset.theme"), 'synth');
   assert.equal(await evaluate("document.querySelector('#rsi-toggle').getAttribute('aria-pressed')"), 'true');
   assert.equal(await evaluate("document.querySelector('#bb-toggle').getAttribute('aria-pressed')"), 'true');
+  const persistedDrawings = await evaluate("JSON.parse(localStorage.getItem('bitcornwisdom:drawings:v1:spot:BTCUSDT:5m') || '[]').map(d => d.type)");
+  assert.deepEqual(persistedDrawings, ['horizontal', 'vertical', 'fib', 'line']);
+  assert.equal(await evaluate("document.querySelector('#drawing-count').textContent"), '4');
 
   await evaluate("(() => { document.querySelector('#liquidity-replay').click(); const scrub = document.querySelector('#liquidity-scrubber'); scrub.value = '85'; scrub.dispatchEvent(new Event('input', { bubbles: true })); return true; })()");
   const replay = await view();
@@ -235,7 +310,7 @@ try {
   assert.equal(replay.live, 'false');
   assert.match(replay.time, /^Replay · /);
   assert.equal(await evaluate("document.querySelector('#liquidity-scrubber').value"), '85');
-  assert.match(await evaluate("document.querySelector('.bottom-bar').textContent"), /v0\.6/);
+  assert.match(await evaluate("document.querySelector('.bottom-bar').textContent"), /v0\.7/);
   // Play at 16×, verify cursor progression, and pause at the chosen sample.
   await evaluate("(() => { const speed = document.querySelector('#liquidity-speed'); speed.value = '16'; speed.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('#liquidity-play').click(); return true; })()");
   await until(async () => Number(await evaluate("document.querySelector('#liquidity-scrubber').value")) > 85, 3000);
@@ -249,6 +324,7 @@ try {
   })).data;
   await writeFile('bitcorn-liquidity-replay.png', Buffer.from(screenshot, 'base64'));
   await writeFile('bitcorn-open-terminal.png', Buffer.from(screenshot, 'base64'));
+  await writeFile('bitcorn-drawings.png', Buffer.from(screenshot, 'base64'));
 
 
   await evaluate("document.querySelector('#liquidity-live').click()");

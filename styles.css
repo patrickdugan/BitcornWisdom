@@ -178,6 +178,16 @@ input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
 .tool.active, .icon-tool.active { background: var(--glow); color: var(--accent);
   border-color: var(--border-hi); }
 .tool.active span { color: var(--accent); }
+#drawing-tool { width: 107px; min-width: 107px; background: var(--elevated);
+  color: var(--fg); border-color: var(--border-hi); }
+#drawing-tool:focus-visible { outline: 2px solid var(--accent); }
+.drawing-count { min-width: 17px; height: 19px; border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); color: var(--accent);
+  font: 10px ui-monospace, monospace; }
+#delete-drawing { color: var(--muted); }
+#delete-drawing:hover { color: var(--down); border-color: var(--down); }
+
 .icon-tool { min-width: 27px; font-size: 15px; }
 .chart-frame { flex: 1; min-height: 0; background: var(--chart); position: relative; }
 .chart-frame::after { content: 'BITCORNWISDOM / OPEN CHART ENGINE'; pointer-events: none;

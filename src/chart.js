@@ -63,6 +63,7 @@ export class CandleChart {
     this.historyPending = false;
     this.historyExhausted = false;
     this.historyRetryAfter = 0;
+    this.historyGeneration = 0;
     this.onHistoryNeeded = onHistoryNeeded;
     this.interval = '1m';
     this.barWidth = 8;
@@ -115,6 +116,7 @@ export class CandleChart {
       this.historyPending = false;
       this.historyExhausted = false;
       this.historyRetryAfter = 0;
+      this.historyGeneration += 1;
     }
     this.requestDraw();
   }
@@ -157,13 +159,19 @@ export class CandleChart {
         this.candles.length === 0) return;
     if (this.computeFrame().start > 24) return;
     this.historyPending = true;
-    Promise.resolve().then(() => this.onHistoryNeeded()).then((loaded) => {
+    const generation = this.historyGeneration;
+    const request = this.onHistoryNeeded;
+    Promise.resolve().then(() => request()).then((loaded) => {
+      if (generation !== this.historyGeneration) return;
       if (loaded === false) this.historyExhausted = true;
       else if (loaded === null) this.historyRetryAfter = Date.now() + 10000;
     }).catch((error) => {
+      if (generation !== this.historyGeneration) return;
       console.warn('Could not load older candles:', error);
       this.historyRetryAfter = Date.now() + 10000;
-    }).finally(() => { this.historyPending = false; });
+    }).finally(() => {
+      if (generation === this.historyGeneration) this.historyPending = false;
+    });
   }
 
   setOptions(options) {

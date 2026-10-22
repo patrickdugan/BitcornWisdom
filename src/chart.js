@@ -459,7 +459,7 @@ export class CandleChart {
     this.pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     if (this.drag) {
       const delta = (this.pointer.x - this.drag.startX) / this.barWidth;
-      this.offsetBars = clamp(this.drag.offset + delta, -this.candles.length + 6, 60);
+      this.offsetBars = clamp(this.drag.offset + delta, -60, this.candles.length - 1 + this.gap);
     }
     const index = Math.round((this.frame || this.computeFrame()).coordinates.index(this.pointer.x));
     this.onHover(this.candles[index] || null);
@@ -488,7 +488,7 @@ export class CandleChart {
     this.barWidth = clamp(this.barWidth * (direction > 0 ? 1.16 : 1 / 1.16), 2, 45);
     const right = this.width - 80;
     this.offsetBars = clamp(this.candles.length - 1 + this.gap -
-      oldIndex - (right - x) / this.barWidth, -this.candles.length + 6, 60);
+      oldIndex - (right - x) / this.barWidth, -60, this.candles.length - 1 + this.gap);
     this.maybeNeedHistory();
     this.requestDraw();
   }
@@ -498,9 +498,9 @@ export class CandleChart {
     else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
       this.undoDrawing();
     } else if (event.key === 'ArrowLeft') {
-      this.offsetBars = clamp(this.offsetBars + 4, -this.candles.length + 6, 60);
+      this.offsetBars = clamp(this.offsetBars + 4, -60, this.candles.length - 1 + this.gap);
     } else if (event.key === 'ArrowRight') {
-      this.offsetBars = clamp(this.offsetBars - 4, -this.candles.length + 6, 60);
+      this.offsetBars = clamp(this.offsetBars - 4, -60, this.candles.length - 1 + this.gap);
     } else if (event.key === 'ArrowUp') {
       this.barWidth = clamp(this.barWidth * 1.15, 2, 45);
     } else if (event.key === 'ArrowDown') {

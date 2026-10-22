@@ -310,7 +310,7 @@ try {
   assert.equal(replay.live, 'false');
   assert.match(replay.time, /^Replay · /);
   assert.equal(await evaluate("document.querySelector('#liquidity-scrubber').value"), '85');
-  assert.match(await evaluate("document.querySelector('.bottom-bar').textContent"), /v0\.7/);
+  assert.match(await evaluate("document.querySelector('.bottom-bar').textContent"), /v0\.8/);
   // Play at 16×, verify cursor progression, and pause at the chosen sample.
   await evaluate("(() => { const speed = document.querySelector('#liquidity-speed'); speed.value = '16'; speed.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('#liquidity-play').click(); return true; })()");
   await until(async () => Number(await evaluate("document.querySelector('#liquidity-scrubber').value")) > 85, 3000);

@@ -61,7 +61,7 @@ function rpcClient(ws) {
   });
 }
 
-async function launchProbe({ name, query, debugPort }) {
+async function launchProbe({ name, query, debugPort, grid = false }) {
   const profile = await mkdtemp(join(tmpdir(), 'bitcorn-live-'));
   const url = 'http://127.0.0.1:' + port + '/' + query;
   const chrome = spawn(process.env.CHROME_BIN || 'google-chrome', [
@@ -99,6 +99,27 @@ async function launchProbe({ name, query, debugPort }) {
       if (state.error) break;
       await sleep(500);
     } while (Date.now() < deadline);
+    let gridFeeds = null;
+    if (grid) {
+      await send('Runtime.evaluate', {
+        expression: "(() => { const select=document.querySelector('#grid-layout');" +
+          " select.value='4'; select.dispatchEvent(new Event('change',{bubbles:true})); return true; })()",
+        returnByValue: true
+      });
+      gridFeeds = await until(async () => {
+        const result = await send('Runtime.evaluate', {
+          expression: "(() => {const p=[...document.querySelectorAll('.secondary-pane')];" +
+            "return p.map(x => {const c=x.querySelector('[data-role=canvas]');" +
+            "return {market:c?.dataset.market||'',symbol:c?.dataset.symbol||''," +
+            "status:c?.dataset.feedStatus||'',candles:Number(c?.dataset.candles||0)}})})()",
+          returnByValue: true
+        });
+        const panes = result.result?.value || [];
+        if (panes.length === 3 && panes.every((x) => x.status === 'live' && x.candles > 0))
+          return panes;
+        return null;
+      }, 12000).catch(() => null);
+    }
     const screenshot = (await send('Page.captureScreenshot', {
       format: 'png', captureBeyondViewport: false
     })).data;
@@ -124,7 +145,7 @@ async function launchProbe({ name, query, debugPort }) {
     }
     return {
       name, elapsedMs: Date.now() - started, ...state,
-      historyLoaded,
+      historyLoaded, gridFeeds,
       priceRendered: /^[0-9,.]+$/.test(state.lastPrice || ''),
       bookVerified: /checksum-verified|synchronized L2|snapshot-fed L2/.test(state.book || ''),
       screenshot: name + '-live-preview.png'
@@ -151,6 +172,10 @@ try {
   }));
   results.push(await launchProbe({
     name: 'coinbase', query: '?market=coinbase&symbol=BTCUSD&interval=5m&demo=0', debugPort: 9343
+  }));
+  results.push(await launchProbe({
+    name: 'grid-live', query: '?market=spot&symbol=BTCUSDT&interval=5m&demo=0',
+    debugPort: 9344, grid: true
   }));
 } finally {
   server.kill();

@@ -7,9 +7,9 @@
 
 Inspired by the feel of the original BitcoinWisdom charts. Built with a homegrown Canvas2D renderer, native browser JavaScript, and **zero npm dependencies**. No TradingView widget, Lightweight Charts package, Pine Script, broker login, or API key.
 
-## The open-market desk (v0.7)
+## The open-market desk (v0.8)
 
-The latest workspace has a three-panel terminal layout, with a customizable color theme and quick access to the markets you follow.
+The latest workspace adds **Single, Split and Four-chart layouts** inside the three-panel market desk, with customizable color themes and quick access to favorite markets. The secondary charts can each track a different exchange, symbol, timeframe and indicator set.
 
 | Charting | Desk and navigation | Liquidity and data |
 | --- | --- | --- |
@@ -19,6 +19,7 @@ The latest workspace has a three-panel terminal layout, with a customizable colo
 | Linear / logarithmic price axis | Noir, Afterhours, Verdigris themes | Kraken CRC32 and Binance sequence checks |
 | Crosshair, editable trend/price/time/Fibonacci annotations | Collapsible market and order-book panels | Binned liquidity heatmap with local replay |
 | PNG chart export | Direct URL-addressable pairs and intervals | IndexedDB sample retention and replay |
+| **1 / 2 / 4 simultaneous charts** | **Linked time span and crosshairs** | Lightweight secondary candle feeds |
 
 ### Run it in one command
 
@@ -33,10 +34,19 @@ Open http://127.0.0.1:5173/ for public market feeds. Open http://127.0.0.1:5173/
     npm run check          # syntax checks and deterministic unit tests
     npm run smoke          # headless Chrome demo hydration
     npm run smoke:archive  # IndexedDB, replay, workspace UI and drawing interactions
+    npm run smoke:grid     # four independent charts, linking and saved layouts
     npm run probe:live     # optional public exchange reachability
     npm run browser:live   # optional live Chrome integration
 
 Static hosting also works: index.html uses relative asset paths, so the site can be served from a subdirectory with HTTPS. See [hosting guidance](docs/HOSTING.md) for local and static setups, browser permissions and exchange restrictions.
+
+### Multi-chart workspace
+
+Select Single, Split, or Four from the LAYOUT menu. In each secondary pane, choose an exchange, symbol and timeframe; the chart loads its own candles and updates without changing the main chart. EMA/SMA/Bollinger/RSI/logarithmic settings are independent. The **Time** switch links pan/zoom across charts by absolute timestamp and approximate visible time range; **Cursor** links the crosshair time. Both can be disabled and are saved along with your pane settings.
+
+The primary chart continues to drive the right-hand live order book, liquidity recording and trade tape. Secondary panes use lightweight OHLC/trade streams rather than duplicating full-depth books. Layout changes stop and release data feeds for removed panes.
+
+See [the multi-chart guide](docs/MULTI_CHART.md) for workflow, data-feed limits, persistence and synchronized-navigation semantics.
 
 ### The keyboard workflow
 
@@ -57,7 +67,7 @@ Static hosting also works: index.html uses relative asset paths, so the site can
 
 Commands include market jumps, 1m–1d timeframe changes, indicators, palette selection, starring markets, workspace panels, and chart export. You can still type arbitrary supported exchange symbols into the top market form. A watchlist shortcut opens the selected market; inactive favorites do not maintain background price subscriptions.
 
-Theme, favorite markets, chart indicators, layout preferences and market/timeframe drawings persist locally. The drawing toolbar adds a selection tool for moving annotations, horizontal price levels, vertical time markers and Fibonacci retracements. Hold **Shift** near a candle's OHLC to snap an anchor to that price. Undo also restores edits and deletions. See [Drawing tools](docs/DRAWINGS.md). You can run the terminal without accounts or cookies.
+Theme, favorite markets, chart indicators, **chart-grid layout and per-pane market selections**, layout preferences and market/timeframe drawings persist locally. The primary drawing toolbar adds a selection tool for moving annotations, horizontal price levels, vertical time markers and Fibonacci retracements. Hold **Shift** near a candle's OHLC to snap an anchor to that price. Undo also restores edits and deletions. See [Drawing tools](docs/DRAWINGS.md). You can run the terminal without accounts or cookies.
 
 ## Market feeds and limits
 
@@ -92,9 +102,9 @@ The core remains browser-native JavaScript, with a small Node static server for 
 
 ## What we're building toward
 
-BitcornWisdom is a **crypto-first TradingView alternative in progress**. Current features cover chart navigation, basic technical analysis, editable drawing annotations and market microstructure. Planned work includes multi-chart layouts, configurable studies, portable workspace exports, alerts, additional venues, and optional open plugin interfaces.
+BitcornWisdom is a **crypto-first TradingView alternative in progress**. Current features cover independent multi-chart layouts, synchronized time navigation, technical analysis, editable primary-chart annotations and market microstructure. Planned work includes shared drawing toolbars across panes, configurable studies, portable workspace exports, alerts, additional venues, and optional open plugin interfaces.
 
-See [product direction](docs/PRODUCT.md), [feature matrix](docs/FEATURE_MATRIX.md) and [architecture](docs/ARCHITECTURE.md). For contributors, start with [CONTRIBUTING.md](CONTRIBUTING.md).
+See [multi-chart guide](docs/MULTI_CHART.md), [product direction](docs/PRODUCT.md), [feature matrix](docs/FEATURE_MATRIX.md) and [architecture](docs/ARCHITECTURE.md). For contributors, start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License and independence
 

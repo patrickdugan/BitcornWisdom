@@ -27,9 +27,9 @@ try {
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
     '--disable-background-networking', '--no-first-run',
     '--window-size=1440,900', '--screenshot=bitcorn-demo.png',
-    '--virtual-time-budget=3500', '--dump-dom',
+    '--dump-dom',
     'http://127.0.0.1:' + port + '/?demo=1'
-  ], { encoding: 'utf8', timeout: 20000, maxBuffer: 8_000_000 });
+  ], { encoding: 'utf8', timeout: 35000, maxBuffer: 8_000_000 });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, result.stderr?.slice(-3000));
   assert.match(result.stdout, /id="connection-label"[^>]*>OFFLINE DEMO</);

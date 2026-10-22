@@ -4,7 +4,9 @@ import {
   toggleFavorite, isFavorite, searchPalette
 } from './workspace.js';
 
-export function mountWorkspace({ settings, chart, persist, loadMarket, validateSelection, setIndicator, setDrawingTool }) {
+export function mountWorkspace({ settings, chart, persist, loadMarket, validateSelection, setIndicator,
+  setDrawingTool, onThemeChange = () => {}, onSetLayout = () => {},
+  onToggleTimeLink = () => {}, onToggleCursorLink = () => {} }) {
   const el = (id) => document.getElementById(id);
   const root = document.documentElement;
   const workspace = document.querySelector('.workspace');
@@ -42,6 +44,7 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
     root.dataset.theme = settings.theme;
     el('theme-select').value = settings.theme;
     chart.setOptions({ theme: settings.theme });
+    onThemeChange(settings.theme);
     persist();
     refresh();
   }
@@ -185,6 +188,11 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
     { id: 'favorite', title: 'Star current market', detail: 'Save or remove pair from favorites', keywords: 'pin bookmark', run: () => favoriteAction() },
     { id: 'export', title: 'Export chart as PNG', detail: 'Save the currently visible Canvas chart', keywords: 'image screenshot download', run: saveChartImage },
     { id: 'reset', title: 'Reset chart view', detail: 'Return to latest candles', keywords: 'home scroll', run: () => chart.resetView() },
+    { id: 'layout-single', title: 'One chart layout', detail: 'Focus on one market', keywords: 'grid layout single', run: () => onSetLayout(1) },
+    { id: 'layout-two', title: 'Two chart layout', detail: 'Split market desk', keywords: 'grid layout split', run: () => onSetLayout(2) },
+    { id: 'layout-four', title: 'Four chart layout', detail: 'Four live market panels', keywords: 'grid layout quad', run: () => onSetLayout(4) },
+    { id: 'link-time', title: 'Toggle linked time navigation', detail: 'Sync pan and zoom across visible charts', keywords: 'grid synchronized scroll', run: onToggleTimeLink },
+    { id: 'link-cursor', title: 'Toggle shared crosshair', detail: 'Align the time cursor across visible charts', keywords: 'grid synchronized cursor', run: onToggleCursorLink },
     { id: 'select', title: 'Select drawing', detail: 'Click an annotation to edit its anchors', keywords: 'drawing edit move', run: () => setDrawingTool('select') },
     { id: 'trend', title: 'Draw trend line', detail: 'Two clicks to anchor a line', keywords: 'drawing trend', run: () => setDrawingTool('line') },
     { id: 'horizontal', title: 'Draw horizontal level', detail: 'Single click to place a price level', keywords: 'drawing price hline', run: () => setDrawingTool('horizontal') },

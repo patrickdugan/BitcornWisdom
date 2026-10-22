@@ -1,6 +1,7 @@
 import { clamp, formatCompact, formatPrice, upsertCandle, INTERVAL_MS } from './core.js';
 import { ema, sma, rsi, bollingerBands } from './indicators.js';
 import { CHART_COLORS } from './workspace.js';
+import { GRID_INTERVAL_MS, timeAtIndex, indexAtTime, linkedViewForTarget } from './chart-grid-core.js';
 import {
   DRAWING_TOOLS, MAX_DRAWINGS, normalizeDrawings, makeDrawing,
   drawingShapes, pickDrawing, moveDrawing
@@ -55,7 +56,8 @@ function timeLabel(ms, interval) {
 
 /** Canvas2D OHLCV chart. One coordinate system is shared by candles, indicators, and drawings. */
 export class CandleChart {
-  constructor(canvas, { onDrawingsChange = () => {}, onHover = () => {}, onHistoryNeeded = null } = {}) {
+  constructor(canvas, { onDrawingsChange = () => {}, onHover = () => {}, onHistoryNeeded = null,
+    onCursor = null, onViewportChange = null } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.candles = [];
@@ -87,6 +89,9 @@ export class CandleChart {
     this.raf = null;
     this.onDrawingsChange = onDrawingsChange;
     this.onHover = onHover;
+    this.onCursor = onCursor;
+    this.onViewportChange = onViewportChange;
+    this.linkedCursorTime = null;
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas.parentElement);
@@ -95,7 +100,13 @@ export class CandleChart {
     canvas.addEventListener('pointermove', (event) => this.pointerMove(event));
     canvas.addEventListener('pointerup', (event) => this.pointerUp(event));
     canvas.addEventListener('pointercancel', () => this.pointerCancel());
-    canvas.addEventListener('pointerleave', () => { if (!this.drag) { this.pointer = null; this.requestDraw(); } });
+    canvas.addEventListener('pointerleave', () => {
+      if (!this.drag) {
+        this.pointer = null;
+        this.onCursor?.(this, null);
+        this.requestDraw();
+      }
+    });
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
     canvas.addEventListener('wheel', (event) => this.wheel(event), { passive: false });
     canvas.addEventListener('keydown', (event) => this.keyDown(event));
@@ -193,6 +204,53 @@ export class CandleChart {
       bollinger: bollingerBands(candles, 20, 2),
       rsi14: rsi(candles, 14)
     });
+  }
+
+  getViewportDescriptor() {
+    if (!this.candles.length) return null;
+    const frame = this.computeFrame();
+    const centerX = (frame.plotLeft + frame.plotRight) / 2;
+    const intervalMs = GRID_INTERVAL_MS[this.interval] || 60_000;
+    return {
+      centerTime: timeAtIndex(this.candles, frame.coordinates.index(centerX), intervalMs),
+      spanMs: (frame.plotRight - frame.plotLeft) / this.barWidth * intervalMs
+    };
+  }
+
+  setLinkedCursorTime(time) {
+    const normalized = Number.isFinite(time) ? time : null;
+    if (this.linkedCursorTime === normalized) return;
+    this.linkedCursorTime = normalized;
+    if (normalized === null) delete this.canvas.dataset.linkedTime;
+    else this.canvas.dataset.linkedTime = String(Math.round(normalized));
+    this.requestDraw();
+  }
+
+  setLinkedViewport(info) {
+    if (!info || !this.candles.length) return false;
+    const frame = this.computeFrame();
+    const intervalMs = GRID_INTERVAL_MS[this.interval] || 60_000;
+    const target = linkedViewForTarget({
+      targetCount: this.candles.length,
+      targetIntervalMs: intervalMs,
+      targetPlotWidth: frame.plotRight - frame.plotLeft,
+      targetRight: frame.plotRight,
+      centerX: (frame.plotLeft + frame.plotRight) / 2,
+      targetCenterIndex: indexAtTime(this.candles, info.centerTime, intervalMs),
+      sourceSpanMs: info.spanMs, gap: this.gap
+    });
+    if (!target) return false;
+    this.barWidth = target.barWidth;
+    this.offsetBars = target.offsetBars;
+    this.canvas.dataset.linkedView = String(Math.round(info.centerTime));
+    this.requestDraw();
+    return true;
+  }
+
+  publishViewport() {
+    if (!this.onViewportChange || !this.candles.length) return;
+    const descriptor = this.getViewportDescriptor();
+    if (descriptor) this.onViewportChange(this, descriptor);
   }
 
   setOptions(options) {
@@ -485,6 +543,27 @@ export class CandleChart {
     ctx.restore();
     ctx.restore();
 
+    if (this.linkedCursorTime !== null && candles.length) {
+      const idx = indexAtTime(candles, this.linkedCursorTime,
+        GRID_INTERVAL_MS[this.interval] || 60_000);
+      const x = coordinates.x(idx);
+      if (x >= left && x <= right) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(left, top, right - left, volumeBottom - top);
+        ctx.clip();
+        ctx.strokeStyle = COLORS.guide;
+        ctx.globalAlpha = .85;
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([2, 5]);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x) + .5, top);
+        ctx.lineTo(Math.round(x) + .5, volumeBottom);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
     if (rsiTop !== null && indicators) {
       ctx.fillStyle = COLORS.axis;
       ctx.fillRect(left, rsiTop, right - left, rsiBottom - rsiTop);
@@ -710,7 +789,14 @@ export class CandleChart {
     }
     const index = Math.round((this.frame || this.computeFrame()).coordinates.index(this.pointer.x));
     this.onHover(this.candles[index] || null);
-    if (this.drag?.kind === 'pan') this.maybeNeedHistory();
+    this.onCursor?.(this, this.candles[index]?.time ??
+      (this.candles.length ? timeAtIndex(this.candles,
+        (this.frame || this.computeFrame()).coordinates.index(this.pointer.x),
+        GRID_INTERVAL_MS[this.interval] || 60_000) : null));
+    if (this.drag?.kind === 'pan') {
+      this.maybeNeedHistory();
+      this.publishViewport();
+    }
     this.requestDraw();
   }
 
@@ -730,6 +816,7 @@ export class CandleChart {
       this.drawings[this.drag.index] = this.drag.original;
     this.drag = null;
     this.pointer = null;
+    this.onCursor?.(this, null);
     this.canvas.style.cursor = this.tool === 'pan' ? 'grab' : 'crosshair';
     this.requestDraw();
   }
@@ -746,6 +833,7 @@ export class CandleChart {
     this.offsetBars = clamp(this.candles.length - 1 + this.gap -
       oldIndex - (right - x) / this.barWidth, -60, this.candles.length - 1 + this.gap);
     this.maybeNeedHistory();
+    this.publishViewport();
     this.requestDraw();
   }
 
@@ -769,6 +857,8 @@ export class CandleChart {
     } else return;
     event.preventDefault();
     this.maybeNeedHistory();
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home'].includes(event.key))
+      this.publishViewport();
     this.requestDraw();
   }
 

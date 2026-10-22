@@ -1,4 +1,4 @@
-# Architecture v0.7
+# Architecture v0.8
 
 Binance Spot/Futures REST history and WS kline/trades, Kraken REST OHLC / WS v2, and Coinbase Exchange REST candles / public WebSocket matches all supply a normalized candle/trade model to the dependency-free Canvas2D chart.
 
@@ -15,6 +15,10 @@ The v0.6 market desk adds a framework-free workspace layer: src/workspace.js val
 The Canvas2D renderer now applies theme palettes directly while rendering and caches its EMA, SMA, RSI and Bollinger series until OHLCV mutates. RSI reserves a separate strip below volume. Themes remain dark to keep market colors readable.
 
 The v0.7 drawing engine separates serializable chart geometry in src/drawings.js from Canvas rendering. Each annotation has a validated type (line, horizontal, vertical, fib) and price/time endpoints. Untyped v0.6 trend lines migrate as line annotations. The geometry module supplies bounded hit testing, semantic translation and seven Fibonacci prices; src/chart.js owns cursor snapping, selectable anchors, pointer editing, fifty-step undo history and the existing per-market/timeframe localStorage callback. Drawings are capped at 200. No chart annotations are sent to market-data exchanges.
+
+Version 0.8 introduces src/chart-grid-core.js (pure layout preference validation, time/index interpolation and cross-interval viewport algebra) and src/chart-grid.js (up to three secondary Canvas charts with separate REST loads, reconnecting market sockets, errors, timers, persistence and teardown). The primary chart continues to own L2 depth, liquidity recording and the trade tape. Secondary panes use candle-only Kraken WebSocket subscriptions, lightweight Coinbase match/heartbeat subscriptions, or Binance public chart streams; they do not duplicate whole order-book downloads or full-depth sockets. Hiding a pane aborts pending requests, closes its socket, clears its demo timer and disconnects its ResizeObserver. Demo samples never become live market history.
+
+Linked Time propagates the source pane's centered absolute timestamp and approximate visible duration to the other charts, compensating for their different candle periods and viewport widths. Linked Cursor transmits the absolute time coordinate only, not price. Receiver updates do not rebroadcast. Each market/timeframe retains its existing local drawing namespace and indicator choices. See MULTI_CHART.md for user-visible boundaries.
 
 The chart consumes normalized UTC millisecond OHLCV and uses the same coordinate transform for candles, indicators, cursor and persisted line drawings. It triggers older-history callbacks when viewport navigation approaches the earliest stored candle. Binance uses an oldest-exclusive REST endTime cursor, while Coinbase requests bounded time ranges. Inserting older bars at the front preserves x positions of already visible candles. Up to 8,000 candles are retained in browser memory, and session generation guards prevent stale historical fetches from changing a newly selected market. One active market session owns its REST controller and sockets. Market switching closes prior feeds and blocks stale updates.
 

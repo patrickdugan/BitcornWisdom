@@ -8,6 +8,8 @@ import { LiquidityHeatmap } from './heatmap.js';
 import { LiquidityArchive, liquiditySeriesKey, ARCHIVE_POLICY } from './liquidity-archive.js';
 import { normalTheme, sanitizeFavorites, MARKET_PRESETS } from './workspace.js';
 import { mountWorkspace } from './workspace-ui.js';
+import { mountChartGrid } from './chart-grid.js';
+import { normalizeGridLayout, normalizeGridPanes } from './chart-grid-core.js';
 
 const el = (id) => document.getElementById(id);
 const STORAGE_KEY = 'bitcornwisdom:settings:v1';
@@ -41,7 +43,11 @@ const settings = {
   theme: normalTheme(previous.theme),
   favorites: previous.favorites === undefined ? MARKET_PRESETS.slice(0, 3) : sanitizeFavorites(previous.favorites),
   watchlistVisible: previous.watchlistVisible ?? !window.matchMedia('(max-width:1110px)').matches,
-  depthVisible: previous.depthVisible ?? true
+  depthVisible: previous.depthVisible ?? true,
+  chartLayout: normalizeGridLayout(previous.chartLayout),
+  gridPanes: normalizeGridPanes(previous.gridPanes),
+  gridLinkTime: previous.gridLinkTime ?? true,
+  gridLinkCursor: previous.gridLinkCursor ?? true
 };
 
 try { validateSelection(settings.market, settings.symbol, settings.interval); }
@@ -61,11 +67,14 @@ function updateTimeframeOptions() {
   }
 }
 
+let chartGrid = null;
 const chart = new CandleChart(el('candle-chart'), {
   onDrawingsChange: (drawings) => {
     writeStored(drawingKey(), drawings);
     updateDrawingControls();
-  }
+  },
+  onCursor: (source, time) => chartGrid?.broadcastCursor(source, time),
+  onViewportChange: (source, view) => chartGrid?.broadcastViewport(source, view)
 });
 let workspaceUI = null;
 const heatmap = new LiquidityHeatmap(el('liquidity-heatmap'), {
@@ -230,6 +239,7 @@ function setStatus(status, description = '') {
 }
 
 function updateHeader() {
+  chartGrid?.updatePrimaryLabel();
   const quote = ['USDT', 'USDC', 'BUSD', 'BTC', 'USD', 'ETH'].find((q) =>
     settings.symbol.endsWith(q) && settings.symbol.length > q.length);
   const base = quote ? settings.symbol.slice(0, -quote.length) : settings.symbol;
@@ -337,6 +347,7 @@ function startDemo(version) {
   const candles = makeDemoCandles(settings.interval, 900);
   if (version !== session) return;
   chart.setCandles(candles, settings.interval);
+  chartGrid?.syncFromPrimary();
   el('chart-loading').hidden = true;
   setStatus('demo');
   setPrice(candles.at(-1).close);
@@ -362,6 +373,7 @@ async function loadMarket() {
   stopFeed();
   // stopFeed increments generation; use the resulting value.
   const current = session;
+  chartGrid?.refreshMode();
   el('market').value = settings.market;
   el('symbol').value = settings.symbol;
   el('timeframe').value = settings.interval;
@@ -418,6 +430,7 @@ async function loadMarket() {
     if (session !== current) return;
     if (data.length === 0) throw new Error('Exchange returned no candles');
     chart.setCandles(data, settings.interval);
+    chartGrid?.syncFromPrimary();
     setPrice(data.at(-1).close);
     showLoading(false);
     const onDepth = (book) => {
@@ -585,11 +598,19 @@ window.addEventListener('beforeunload', () => {
   stopFeed();
   chart.destroy();
   heatmap.destroy();
+  chartGrid?.destroy();
   archive.close();
 });
 
+chartGrid = mountChartGrid({
+  root: el('chart-frame'), primary: chart, settings, persist
+});
 workspaceUI = mountWorkspace({
   settings, chart, persist, loadMarket, validateSelection,
-  setIndicator: toggleIndicator, setDrawingTool: applyDrawingTool
+  setIndicator: toggleIndicator, setDrawingTool: applyDrawingTool,
+  onThemeChange: (theme) => chartGrid?.setTheme(theme),
+  onSetLayout: (count) => chartGrid?.setLayout(count),
+  onToggleTimeLink: () => chartGrid?.setLinkTime(!settings.gridLinkTime),
+  onToggleCursorLink: () => chartGrid?.setLinkCursor(!settings.gridLinkCursor)
 });
 loadMarket();

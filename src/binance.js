@@ -60,10 +60,14 @@ async function getJson(market, symbol, path, params, signal, requester = fetch) 
   throw new Error('Market data unavailable: ' + (lastError?.message || 'network error'));
 }
 
-export async function fetchCandles(market, symbol, interval, signal, limit = 1000, requester = fetch) {
+export async function fetchCandles(market, symbol, interval, signal, limit = 1000, requester = fetch, endBefore = null) {
   checkMarket(market, symbol, interval);
-  const body = await getJson(market, symbol, HOSTS[market].klines,
-    { interval, limit: String(Math.min(1000, Math.max(1, limit))) }, signal, requester);
+  const params = { interval, limit: String(Math.min(1000, Math.max(1, limit))) };
+  if (endBefore !== null) {
+    if (!Number.isSafeInteger(endBefore) || endBefore < 1) throw new RangeError('Invalid history cursor');
+    params.endTime = String(endBefore - 1);
+  }
+  const body = await getJson(market, symbol, HOSTS[market].klines, params, signal, requester);
   if (!Array.isArray(body)) throw new TypeError('Expected Binance kline array');
   return body.map(parseKline).sort((a, b) => a.time - b.time);
 }

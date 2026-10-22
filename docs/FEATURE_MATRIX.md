@@ -1,15 +1,16 @@
-# v0.2 feature matrix
+# v0.4 feature matrix
 
 | Feature | Implementation | Follow-up |
 | --- | --- | --- |
 | Candles, volume, pan/zoom | Canvas2D chart | 100k-bar benchmarks |
+| Older chart candles | Cursor-paged Binance/Coinbase REST, up to 8,000 bars | Kraken venue-side limit; gap handling |
 | EMA/SMA, log scale | Yes | Further overlays |
 | RSI | Library calculation | RSI subplot |
 | Trend lines | Local persistence | Editing/Fibonacci |
 | Binance Spot | Candles, raw trades, synchronized bounded L2 | Deep historical replay |
 | Binance Futures | Candles, aggTrade, U/u/pu synchronized L2 | Futures REST region checks |
 | Kraken Spot | REST/WS v2 candles, trade, CRC32-verified L2 | Larger book depth |
-| Coinbase Exchange Spot | REST OHLC, trade-extended live bars, bounded L2 snapshot/update and heartbeat gap detection | Historical paging and replay |
+| Coinbase Exchange Spot | REST OHLC, trade-extended live bars, bounded L2 snapshot/update and heartbeat gap detection | Full L2 replay |
 | Heatmap | Live ±1% band, 200 bins, 160 samples | Durable depth |
 | Other venues | Planned | Bitfinex, Bybit |
 | Alerts, trading, social | Out of scope for core | Optional separate services |

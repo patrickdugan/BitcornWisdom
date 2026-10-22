@@ -13,6 +13,7 @@ jobs:
           node-version: '22'
       - run: npm run check
       - run: npm run smoke
+      - run: npm run smoke:grid
       - run: npm run smoke:archive
         timeout-minutes: 2
       - run: npm run probe:live

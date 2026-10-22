@@ -8,7 +8,8 @@ import { join } from 'node:path';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const port = 5192;
 const publicBase = process.env.BITCORN_PUBLIC_URL ?
-  new URL(process.env.BITCORN_PUBLIC_URL.replace(/\\/?$/, '/')) : null;
+  new URL(process.env.BITCORN_PUBLIC_URL.endsWith('/') ?
+    process.env.BITCORN_PUBLIC_URL : process.env.BITCORN_PUBLIC_URL + '/') : null;
 const server = publicBase ? null : spawn(process.execPath, ['server.mjs'], {
   env: { ...process.env, PORT: String(port), HOST: '127.0.0.1' }, stdio: 'ignore'
 });

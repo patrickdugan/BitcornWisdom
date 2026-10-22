@@ -1,14 +1,20 @@
-# Renderer measurement plan
+# Market motion and renderer measurement
 
-No measured browser FPS or per-frame latency numbers are claimed yet. Unit tests cover coordinate transforms, including invertibility under zoom and pan. The current client begins with venue-limited candle history and lazily paginates Binance/Coinbase older bars up to 8,000 retained candles.
+BitcornWisdom v0.10 uses browser-native Canvas2D and draw-on-demand requestAnimationFrame. On an active candle or verified L2 update, its latest snapshot becomes authoritative immediately. For up to 180 ms, the renderer eases the visible candle body, wick, volume, or cumulative depth profile toward that snapshot. Trade ticks also move the current price marker and briefly highlight its new position. Numbers printed in the chart marker, header, order-book ladder and tape are **raw latest exchange observations**, so the brief graphic tween cannot be misread as a fabricated trade.
 
-Benchmark Chromium and Firefox at 1,000, 10,000 and 100,000 synthetic bars. Fix viewport to 1200×700, then compare first draw, drag/zoom FPS, main-thread long tasks, memory, and devicePixelRatio 1x versus 2x. Record performance before choosing WebGL.
+The market render meter measures **update arrival to the completion of Canvas draw**, not OS compositor presentation or exchange-wire latency. Its p95 spans a bounded rolling sample of 90 observed updates or draws; FPS excludes idle gaps and describes only active animation frames. The browser user interface shows these diagnostics and intentionally makes no universal FPS or latency promises.
 
-Canvas currently renders only visible candles based on width/barWidth. Since v0.6, EMA/SMA, Bollinger and RSI arrays are cached across pan, hover, and zoom redraws, then invalidated when OHLCV changes. Indicator recalculation still scales with loaded bar count and needs timing measurements before raising the 8k chart cap. Handle missing trading periods and optimize live indicator caching before interpreting any 100k-bar benchmark as a production-capable history test.
+## Data integrity and load
 
+- The Binance book enters the renderer after sequenced REST-snapshot reconciliation; Kraken verifies CRC; Coinbase applies its snapshot-fed L2 updates. A reconnect or book-sync failure clears the depth rail.
+- Cumulative bid and ask curves sample up to 1,000 verified levels per side and project onto the chart's current price-axis mapping, including log-scale. Small cumulative amounts receive square-root visual scaling, clearly a display-only transform.
+- The independent L2 rail appears at chart widths of at least 700 CSS pixels. Narrow viewports preserve candle space.
+- The classic desk's book list updates existing DOM row nodes and uses CSS width transitions. Motion Off and `prefers-reduced-motion:reduce` suppress DOM and Canvas transitions.
+- Stored liquidity heatmap recordings still use sampled, price-binned observations, approximately one per second, and do not imply a lossless L2 history.
+- Four-chart grid cells continue using their independent candle streams. Each may animate its latest candle, while only the classic desk holds a book subscription and L2 rail.
 
-## IndexedDB replay budget
+## Verification
 
-The liquidity archive retains at most about 12,000 timestamped sparse columns globally, loads 6,000 of the selected series, and draws a maximum of 160 at any point. One capture approximately every second adds a bounded IndexedDB write. Live capture appends in constant time when sample clocks increase, while bulk history restoration sorts and deduplicates the loaded columns. Pruning runs periodically and on startup.
+`npm run check` validates interpolation math, depth sums, data invariants, render metrics, market adapters and original navigation tests. `npm run smoke:motion` launches real headless Chrome in offline demo mode and asserts painted green/red depth pixels, preserved book nodes across ticks, a running render meter, and the preference toggle. The command writes `bitcorn-market-motion.png`, uploaded in CI.
 
-Measure real data-recording throughput and quota behavior separately from the screenshot smoke. Monitor browser heap growth and IndexedDB size after sustained use on deep Binance books. Archived binned columns omit fine-grained depth events and should not be interpreted as high-frequency exchange fidelity.
+The smoke latency ceilings are generous, intended to detect broken rendering or severe stalls, rather than to certify a desktop-FPS SLA. Real-world benchmarking still needs sustained session measurements, source timestamp comparisons, CPU profiling, background-tab behavior, and GPU/HiDPI checks. Chart initial history is venue-limited and older Binance/Coinbase paging remains bounded to 8,000 retained bars.

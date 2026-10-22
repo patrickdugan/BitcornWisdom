@@ -1,8 +1,8 @@
-# v0.8 feature matrix
+# v0.10 feature matrix
 
 | Feature | Implementation | Follow-up |
 | --- | --- | --- |
-| Candles, volume, pan/zoom | Canvas2D chart | 100k-bar benchmarks |
+| Candles, volume, pan/zoom | Canvas2D chart; short live OHLCV visual transitions, exact exchange snapshot remains authoritative | 100k-bar benchmarks |
 | Themes | Noir, Afterhours, Verdigris with matching Canvas palettes | Theme export/import |
 | Market navigation | Command deck, local favorites, discover shortcuts | Exchange-wide symbol discovery |
 | Workspace panels | Collapsible watchlist and order-book; responsive drawer | Resizable custom layouts |
@@ -14,6 +14,7 @@
 | EMA/SMA, log scale | Yes | Further overlays |
 | RSI | Library calculation | RSI subplot |
 | Drawings | Editable trend lines, horizontal/vertical levels, Fibonacci 0–100%, local persistence, undo | Crosshair sync and geometry smoothing |
+| Market motion | Trade-responsive price marker, active candle tween, cumulative L2 curves, animated ladder bars, new-print flash; user motion toggle | Measured multi-hour stability, WebGL only if justified |
 | Binance Spot | Candles, raw trades, synchronized bounded L2 | Deep historical replay |
 | Binance Futures | Candles, aggTrade, U/u/pu synchronized L2 | Futures REST region checks |
 | Kraken Spot | REST/WS v2 candles, trade, CRC32-verified L2 | Larger book depth |

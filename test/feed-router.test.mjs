@@ -177,3 +177,31 @@ test('manual switching never reuses an incompatible quote',async()=>{
   assert.equal(router.snapshot().source.instrument,'BTC-USDT-SPOT');
   router.stop();
 });
+
+test('stale timestamps, future timestamps and old replay do not refresh feed health',async()=>{
+  const current=Date.UTC(2026,9,22,21,0,0);
+  let now=current, callbacks, accepted=0;
+  const warnings=[];
+  const router=new FeedRouter({
+    sources:feedPlan({instrument:'BTC-USDT-SPOT'}),
+    clock:()=>now,schedule:()=>42,cancel:()=>{},
+    openSource:async(source,cb)=>{callbacks=cb;cb.onStatus('live');return{close(){}};},
+    onCandle:()=>accepted++,
+    onError:error=>warnings.push(error.message)
+  });
+  await router.start();
+  callbacks.onCandle(candle(current-60000));
+  assert.equal(accepted,1);
+  callbacks.onCandle(candle(current-3600000));
+  callbacks.onCandle(candle(current+3600000));
+  assert.equal(accepted,1);
+  assert.ok(warnings.some(x=>x.includes('Stale')));
+  assert.ok(warnings.length>=2);
+  now+=60000;
+  callbacks.onCandle(candle(current));
+  assert.equal(accepted,2);
+  callbacks.onCandle(candle(current-240000));
+  assert.equal(accepted,2);
+  assert.ok(warnings.some(x=>x.includes('replay')));
+  router.stop();
+});

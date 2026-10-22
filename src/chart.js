@@ -1,10 +1,6 @@
 import { clamp, formatCompact, formatPrice, upsertCandle, INTERVAL_MS } from './core.js';
-import { ema, sma } from './indicators.js';
-
-const COLORS = Object.freeze({
-  up: '#85cfa5', down: '#e2737c', upBody: 'rgba(107,196,146,.23)',
-  downBody: '#ae3d51', grid: '#25333f', labels: '#91a0ac', cross: '#86939e'
-});
+import { ema, sma, rsi, bollingerBands } from './indicators.js';
+import { CHART_COLORS } from './workspace.js';
 
 export function viewRange(length, plotWidth, barWidth, offsetBars, gap = 11) {
   if (!length) return { start: 0, end: -1 };
@@ -72,6 +68,10 @@ export class CandleChart {
     this.logarithmic = false;
     this.showEMA = true;
     this.showSMA = false;
+    this.showBB = false;
+    this.showRSI = false;
+    this.theme = 'noir';
+    this.cachedIndicators = null;
     this.drawings = [];
     this.drawingAnchor = null;
     this.tool = 'pan';
@@ -110,6 +110,7 @@ export class CandleChart {
 
   setCandles(candles, interval, reset = true) {
     this.candles = candles.slice(-this.maxCandleBars);
+    this.cachedIndicators = null;
     this.interval = interval;
     if (reset) {
       this.offsetBars = 0;
@@ -123,6 +124,7 @@ export class CandleChart {
 
   updateCandle(candle) {
     const result = upsertCandle(this.candles, candle, this.maxCandleBars);
+    this.cachedIndicators = null;
     this.requestDraw();
     return result;
   }
@@ -140,6 +142,7 @@ export class CandleChart {
     if (!room || !preceding.length) return 0;
     const added = preceding.slice(-room);
     this.candles = [...added, ...this.candles];
+    this.cachedIndicators = null;
     this.requestDraw();
     return added.length;
   }
@@ -150,6 +153,7 @@ export class CandleChart {
     for (const candle of recent) merged.set(candle.time, candle);
     this.candles = [...merged.values()].sort((a, b) => a.time - b.time)
       .slice(-this.maxCandleBars);
+    this.cachedIndicators = null;
     this.requestDraw();
   }
 
@@ -171,6 +175,17 @@ export class CandleChart {
       this.historyRetryAfter = Date.now() + 10000;
     }).finally(() => {
       if (generation === this.historyGeneration) this.historyPending = false;
+    });
+  }
+
+  getIndicators() {
+    if (this.cachedIndicators) return this.cachedIndicators;
+    const candles = this.candles;
+    return (this.cachedIndicators = {
+      ema20: ema(candles, 20),
+      sma50: sma(candles, 50),
+      bollinger: bollingerBands(candles, 20, 2),
+      rsi14: rsi(candles, 14)
     });
   }
 
@@ -218,8 +233,12 @@ export class CandleChart {
   computeFrame() {
     const { width, height, candles, barWidth, offsetBars, gap } = this;
     const plotLeft = 12, plotRight = width - 80;
-    const volumeBottom = height - 28;
-    const volumeTop = height - clamp(height * .18, 45, 108);
+    const rsiVisible = this.showRSI && height >= 340;
+    const rsiHeight = rsiVisible ? clamp(height * .16, 58, 104) : 0;
+    const rsiTop = rsiVisible ? height - 28 - rsiHeight : null;
+    const rsiBottom = rsiVisible ? height - 28 : null;
+    const volumeBottom = rsiVisible ? rsiTop - 10 : height - 28;
+    const volumeTop = volumeBottom - clamp(height * .14, 42, 91);
     const priceTop = 28, priceBottom = volumeTop - 15;
     const { start, end } = viewRange(candles.length, plotRight - plotLeft, barWidth, offsetBars, gap);
     const coordinates = coordinateMap({
@@ -232,29 +251,38 @@ export class CandleChart {
       maxVolume = Math.max(maxVolume, candles[i].volume);
     }
     if (!Number.isFinite(low)) { low = 1; high = 2; }
+    if (this.showBB && candles.length >= 20) {
+      const bands = this.getIndicators().bollinger;
+      for (let i = start; i <= end; i++) {
+        if (bands.lower[i] === null) continue;
+        low = Math.min(low, bands.lower[i]);
+        high = Math.max(high, bands.upper[i]);
+      }
+    }
     const spread = Math.max(high - low, high * .0001, .00000001);
     low = Math.max(0.000000001, low - spread * .085);
     high += spread * .085;
     const prices = createPriceScale(low, high, priceTop, priceBottom, this.logarithmic);
     return {
       plotLeft, plotRight, priceTop, priceBottom, volumeTop,
-      volumeBottom, start, end, coordinates, prices, low, high, maxVolume
+      volumeBottom, rsiTop, rsiBottom, start, end, coordinates, prices, low, high, maxVolume
     };
   }
 
   draw() {
     const { ctx, width: w, height: h, candles } = this;
+    const COLORS = CHART_COLORS[this.theme] || CHART_COLORS.noir;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = '#0b1219';
+    ctx.fillStyle = COLORS.bg;
     ctx.fillRect(0, 0, w, h);
     const frame = this.computeFrame();
     this.frame = frame;
     const { plotLeft: left, plotRight: right, priceTop: top, priceBottom: bottom,
-      volumeTop, volumeBottom, start, end, coordinates, prices } = frame;
+      volumeTop, volumeBottom, rsiTop, rsiBottom, start, end, coordinates, prices } = frame;
 
     ctx.font = '11px ui-monospace, SFMono-Regular, Consolas, monospace';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#0f1a23';
+    ctx.fillStyle = COLORS.axis;
     ctx.fillRect(right + 1, 0, w - right, h);
     ctx.fillRect(0, h - 27, w, 27);
 
@@ -312,7 +340,7 @@ export class CandleChart {
         Math.max(0, candleWidth - 1), Math.max(0, Math.round(bodyHeight) - 1));
 
       const vheight = candle.volume / frame.maxVolume * (volumeBottom - volumeTop - 4);
-      ctx.fillStyle = candle.close >= candle.open ? 'rgba(102,175,133,.50)' : 'rgba(195,88,102,.50)';
+      ctx.fillStyle = candle.close >= candle.open ? COLORS.volUp : COLORS.volDown;
       ctx.fillRect(Math.round(x - candleWidth / 2), volumeBottom - vheight, candleWidth, vheight);
     }
 
@@ -332,8 +360,16 @@ export class CandleChart {
     };
     ctx.save();
     ctx.beginPath(); ctx.rect(left, top, right - left, bottom - top); ctx.clip();
-    if (this.showEMA) line(ema(candles, 20), '#e4b36c');
-    if (this.showSMA) line(sma(candles, 50), '#88a8e2');
+    const indicators = (this.showEMA || this.showSMA || this.showBB || this.showRSI) ? this.getIndicators() : null;
+    if (this.showBB && indicators) {
+      ctx.globalAlpha = .85;
+      line(indicators.bollinger.upper, COLORS.bb);
+      line(indicators.bollinger.lower, COLORS.bb);
+      ctx.globalAlpha = 1;
+      line(indicators.bollinger.basis, COLORS.bb);
+    }
+    if (this.showEMA && indicators) line(indicators.ema20, COLORS.ema);
+    if (this.showSMA && indicators) line(indicators.sma50, COLORS.sma);
     ctx.restore();
 
     const point = (p) => ({
@@ -343,7 +379,7 @@ export class CandleChart {
     const drawLine = (a, b, alpha = 1) => {
       const p = point(a), q = point(b);
       ctx.globalAlpha = alpha;
-      ctx.strokeStyle = '#d6b77b'; ctx.lineWidth = 1.3;
+      ctx.strokeStyle = COLORS.drawing; ctx.lineWidth = 1.3;
       ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
       ctx.globalAlpha = 1;
     };
@@ -353,16 +389,51 @@ export class CandleChart {
     }
     ctx.restore();
 
+    if (rsiTop !== null && indicators) {
+      ctx.fillStyle = COLORS.axis;
+      ctx.fillRect(left, rsiTop, right - left, rsiBottom - rsiTop);
+      ctx.strokeStyle = COLORS.grid;
+      ctx.lineWidth = 1;
+      for (const marker of [30, 50, 70]) {
+        const y = rsiTop + (100 - marker) / 100 * (rsiBottom - rsiTop);
+        ctx.beginPath();
+        ctx.moveTo(left, Math.round(y) + .5);
+        ctx.lineTo(right, Math.round(y) + .5);
+        ctx.stroke();
+        ctx.fillStyle = COLORS.labels;
+        ctx.fillText(String(marker), right + 6, y);
+      }
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(left, rsiTop, right - left, rsiBottom - rsiTop);
+      ctx.clip();
+      ctx.beginPath();
+      let pen = false;
+      for (let i = start; i <= end; i++) {
+        const value = indicators.rsi14[i];
+        if (value == null) { pen = false; continue; }
+        const x = coordinates.x(i);
+        const y = rsiTop + (100 - value) / 100 * (rsiBottom - rsiTop);
+        if (!pen) { ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = COLORS.rsi;
+      ctx.lineWidth = 1.65;
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = COLORS.labels;
+      ctx.fillText('RSI 14', left + 6, rsiTop + 11);
+    }
+
     if (candles.length) {
       const last = candles[candles.length - 1];
       const lastY = prices.y(last.close);
-      ctx.strokeStyle = '#ddc093';
+      ctx.strokeStyle = COLORS.last;
       ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(left, lastY); ctx.lineTo(right, lastY); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#c6a873';
+      ctx.fillStyle = COLORS.last;
       ctx.fillRect(right + 1, lastY - 10, w - right - 2, 20);
-      ctx.fillStyle = '#101820';
+      ctx.fillStyle = COLORS.lastText;
       ctx.fillText(formatPrice(last.close), right + 5, lastY);
     }
 
@@ -374,14 +445,14 @@ export class CandleChart {
       if (y <= bottom && y >= top) {
         ctx.beginPath(); ctx.moveTo(left, y + .5); ctx.lineTo(right, y + .5); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = '#405261'; ctx.fillRect(right + 1, y - 10, w - right - 2, 20);
-        ctx.fillStyle = '#f4f7f9'; ctx.fillText(formatPrice(prices.price(y)), right + 5, y);
+        ctx.fillStyle = COLORS.hoverBg; ctx.fillRect(right + 1, y - 10, w - right - 2, 20);
+        ctx.fillStyle = COLORS.hoverText; ctx.fillText(formatPrice(prices.price(y)), right + 5, y);
       }
       ctx.setLineDash([]);
       const index = Math.round(coordinates.index(x));
       const selected = candles[index];
       if (selected) {
-        ctx.fillStyle = '#192934';
+        ctx.fillStyle = COLORS.hoverBg;
         ctx.fillRect(10, 2, Math.min(w - 92, 440), 22);
         ctx.fillStyle = COLORS.labels;
         ctx.fillText('O ' + formatPrice(selected.open) + '  H ' + formatPrice(selected.high) +

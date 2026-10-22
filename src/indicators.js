@@ -49,3 +49,26 @@ export function rsi(candles, period = 14) {
   }
   return out;
 }
+
+
+/** Bollinger Bands with population standard deviation of close values. */
+export function bollingerBands(candles, period = 20, deviation = 2) {
+  if (!Number.isInteger(period) || period < 2 || !Number.isFinite(deviation) || deviation <= 0) {
+    throw new RangeError('Invalid Bollinger configuration');
+  }
+  const basis = sma(candles, period);
+  const upper = Array(candles.length).fill(null);
+  const lower = Array(candles.length).fill(null);
+  for (let i = period - 1; i < candles.length; i++) {
+    const mean = basis[i];
+    let squareError = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      const delta = candles[j].close - mean;
+      squareError += delta * delta;
+    }
+    const band = deviation * Math.sqrt(squareError / period);
+    upper[i] = mean + band;
+    lower[i] = mean - band;
+  }
+  return { basis, upper, lower };
+}

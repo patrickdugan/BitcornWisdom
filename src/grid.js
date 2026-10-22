@@ -7,8 +7,11 @@ import { formatPrice } from './core.js';
 import { MARKET_NAMES, normalTheme, symbolLabel } from './workspace.js';
 import {
   GRID_MODES, GRID_MARKETS, GRID_INTERVALS, normalizeGridCell,
-  loadGridLayout, saveGridLayout
+  loadGridLayout, saveGridLayout, normalizeGridLayout, normalizeSplit,
+  normalizeGridPresetName, loadGridPresets, saveGridPresets,
+  exportGridWorkspace, parseGridWorkspace, GRID_PRESET_LIMIT, GRID_WORKSPACE_MAX_BYTES
 } from './grid-model.js';
+import { getUTCViewport, applyUTCViewport } from './grid-time.js';
 
 const byId = (id) => document.getElementById(id);
 const grid = byId('chart-grid');
@@ -27,6 +30,7 @@ byId('grid-sync-crosshair').checked = layout.syncCrosshair;
 byId('grid-sync-range').checked = layout.syncRange;
 byId('grid-demo').checked = layout.demo;
 let cells = [];
+let presets = loadGridPresets(localStorage);
 let syncPending = false;
 
 const storeLayout = () => {
@@ -58,14 +62,18 @@ function syncRange(source) {
   requestAnimationFrame(() => {
     syncPending = false;
     if (!cells.includes(source)) return;
+    const window = getUTCViewport(source.chart);
+    if (!window) return;
     for (const cell of cells) {
-      if (cell === source || !cell.chart) continue;
-      cell.chart.barWidth = source.chart.barWidth;
-      // Right-hand distance from latest candle stays comparable across timeframes.
-      cell.chart.offsetBars = source.chart.offsetBars;
-      cell.chart.requestDraw();
+      if (cell !== source && cell.chart) applyUTCViewport(cell.chart, window);
     }
   });
+}
+function alignLoadedCell(cell) {
+  if (!layout.syncRange) return;
+  const peer = cells.find((other) => other !== cell && other.chart?.candles.length);
+  const window = peer && getUTCViewport(peer.chart);
+  if (window) applyUTCViewport(cell.chart, window);
 }
 
 function demoCandles(selection) {
@@ -127,6 +135,7 @@ async function loadCell(cell) {
     const candles = demoCandles(selection);
     if (version !== cell.generation) return;
     cell.chart.setCandles(candles, selection.interval);
+    alignLoadedCell(cell);
     cell.priceText.textContent = formatPrice(candles.at(-1).close);
     setCellStatus(cell, 'SYNTHETIC DEMO', 'demo');
     let tick = 0;
@@ -148,6 +157,7 @@ async function loadCell(cell) {
     if (version !== cell.generation || controller.signal.aborted) return;
     if (!candles.length) throw new Error('No candles available for this market');
     cell.chart.setCandles(candles, selection.interval);
+    alignLoadedCell(cell);
     cell.priceText.textContent = formatPrice(candles.at(-1).close);
     const callbacks = {
       onStatus: (state) => {
@@ -295,16 +305,85 @@ function newCell(index) {
   return cell;
 }
 
+function applySplitterStyles() {
+  grid.style.setProperty('--grid-col-ratio', layout.splitX + '%');
+  grid.style.setProperty('--grid-row-ratio', layout.splitY + '%');
+}
+function addDivider(axis) {
+  const key = axis === 'x' ? 'splitX' : 'splitY';
+  const cssKey = axis === 'x' ? '--grid-col-ratio' : '--grid-row-ratio';
+  const divider = document.createElement('div');
+  divider.className = 'grid-divider grid-divider--' + (axis === 'x' ? 'col' : 'row');
+  divider.tabIndex = 0;
+  divider.setAttribute('role', 'separator');
+  divider.setAttribute('aria-orientation', axis === 'x' ? 'vertical' : 'horizontal');
+  divider.setAttribute('aria-label', axis === 'x' ? 'Resize chart columns' : 'Resize chart rows');
+  divider.setAttribute('aria-valuemin', '20');
+  divider.setAttribute('aria-valuemax', '80');
+  let pointerId = null;
+  function update(value, persist = false) {
+    layout[key] = normalizeSplit(value);
+    grid.style.setProperty(cssKey, layout[key] + '%');
+    divider.setAttribute('aria-valuenow', String(layout[key]));
+    if (persist) storeLayout();
+  }
+  function fromPointer(event) {
+    const bounds = grid.getBoundingClientRect();
+    const value = axis === 'x' ?
+      (event.clientX - bounds.left) / bounds.width * 100 :
+      (event.clientY - bounds.top) / bounds.height * 100;
+    return value;
+  }
+  divider.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    pointerId = event.pointerId;
+    divider.setPointerCapture(event.pointerId);
+    update(fromPointer(event));
+  });
+  divider.addEventListener('pointermove', (event) => {
+    if (event.pointerId === pointerId) update(fromPointer(event));
+  });
+  function finish(event) {
+    if (event.pointerId !== pointerId) return;
+    pointerId = null;
+    storeLayout();
+  }
+  divider.addEventListener('pointerup', finish);
+  divider.addEventListener('pointercancel', finish);
+  divider.addEventListener('keydown', (event) => {
+    const backward = axis === 'x' ? 'ArrowLeft' : 'ArrowUp';
+    const forward = axis === 'x' ? 'ArrowRight' : 'ArrowDown';
+    if (![backward, forward, 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    update(event.key === 'Home' ? 20 : event.key === 'End' ? 80 :
+      layout[key] + (event.key === forward ? 2.5 : -2.5), true);
+  });
+  update(layout[key]);
+  grid.append(divider);
+}
 function render() {
   for (const cell of cells) {
     stopCell(cell);
     cell.chart.destroy();
-    cell.article.remove();
   }
   cells = [];
+  grid.replaceChildren();
   grid.dataset.count = String(layout.mode);
+  applySplitterStyles();
   for (let i = 0; i < layout.mode; i++) cells.push(newCell(i));
+  if (layout.mode >= 2) addDivider('x');
+  if (layout.mode === 4) addDivider('y');
   status();
+}
+function applyLayout(next) {
+  layout = normalizeGridLayout(next);
+  byId('grid-mode').value = String(layout.mode);
+  byId('grid-sync-crosshair').checked = layout.syncCrosshair;
+  byId('grid-sync-range').checked = layout.syncRange;
+  byId('grid-demo').checked = layout.demo;
+  storeLayout();
+  render();
 }
 byId('grid-mode').addEventListener('change', () => {
   const next = Number(byId('grid-mode').value);
@@ -333,6 +412,87 @@ byId('grid-theme').addEventListener('change', () => {
   try { localStorage.setItem('bitcornwisdom:grid:theme', theme); } catch {}
   for (const cell of cells) cell.chart.setOptions({ theme });
 });
+function showLayoutNote(message, error = false) {
+  const note = byId('grid-layout-note');
+  note.textContent = message;
+  note.style.color = error ? 'var(--down)' : '';
+}
+function refreshPresets(selected = '') {
+  const select = byId('grid-presets');
+  select.replaceChildren(new Option('Select saved…', ''));
+  for (const item of presets) select.append(new Option(item.name, item.name));
+  select.value = selected;
+}
+byId('grid-presets').addEventListener('change', () => {
+  byId('grid-preset-name').value = byId('grid-presets').value;
+});
+byId('grid-save-preset').addEventListener('click', () => {
+  const name = normalizeGridPresetName(byId('grid-preset-name').value);
+  if (!name) return showLayoutNote('Enter a layout name', true);
+  const index = presets.findIndex((p) => p.name.toLowerCase() === name.toLowerCase());
+  if (index < 0 && presets.length >= GRID_PRESET_LIMIT)
+    return showLayoutNote('Maximum ' + GRID_PRESET_LIMIT + ' saved layouts', true);
+  const next = presets.slice();
+  const item = { name, layout: normalizeGridLayout(layout) };
+  if (index >= 0) next[index] = item;
+  else next.push(item);
+  try { presets = saveGridPresets(localStorage, next); }
+  catch (error) { return showLayoutNote('Unable to save layout: ' + error.message, true); }
+  refreshPresets(name);
+  showLayoutNote('Saved: ' + name);
+});
+byId('grid-load-preset').addEventListener('click', () => {
+  const name = byId('grid-presets').value;
+  const item = presets.find((p) => p.name === name);
+  if (!item) return showLayoutNote('Select a saved layout', true);
+  applyLayout(item.layout);
+  showLayoutNote('Loaded: ' + name);
+});
+byId('grid-delete-preset').addEventListener('click', () => {
+  const name = byId('grid-presets').value;
+  if (!name) return showLayoutNote('Select a saved layout', true);
+  if (!confirm('Delete saved layout "' + name + '"?')) return;
+  try { presets = saveGridPresets(localStorage, presets.filter((p) => p.name !== name)); }
+  catch (error) { return showLayoutNote('Unable to delete layout: ' + error.message, true); }
+  refreshPresets();
+  byId('grid-preset-name').value = '';
+  showLayoutNote('Deleted: ' + name);
+});
+byId('grid-export').addEventListener('click', () => {
+  const json = exportGridWorkspace(layout, presets, theme);
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'bitcornwisdom-workspace.json';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showLayoutNote('Exported active layout + ' + presets.length + ' presets');
+});
+byId('grid-import').addEventListener('click', () => byId('grid-import-file').click());
+byId('grid-import-file').addEventListener('change', async () => {
+  const input = byId('grid-import-file'), file = input.files?.[0];
+  if (!file) return;
+  try {
+    if (file.size > GRID_WORKSPACE_MAX_BYTES) throw new Error('File exceeds 256 KiB');
+    const imported = parseGridWorkspace(await file.text());
+    // Parse and validate the whole document before changing active state.
+    presets = saveGridPresets(localStorage, imported.presets);
+    theme = normalTheme(imported.theme);
+    try { localStorage.setItem('bitcornwisdom:grid:theme', theme); } catch {}
+    document.documentElement.dataset.theme = theme;
+    byId('grid-theme').value = theme;
+    applyLayout(imported.active);
+    refreshPresets();
+    showLayoutNote('Imported active layout + ' + presets.length + ' presets');
+  } catch (error) {
+    showLayoutNote('Import rejected: ' + error.message, true);
+  } finally {
+    input.value = '';
+  }
+});
+refreshPresets();
 window.addEventListener('beforeunload', () => {
   for (const cell of cells) {
     stopCell(cell);

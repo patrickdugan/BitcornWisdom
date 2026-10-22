@@ -24,6 +24,10 @@ try{
  assert.match(chrome.stdout,new RegExp('data-count="'+mode+'"'));
  assert.equal((chrome.stdout.match(/class="grid-cell"/g)||[]).length,mode);
  assert.equal((chrome.stdout.match(/SYNTHETIC DEMO/g)||[]).length,mode);
+ assert.match(chrome.stdout,/id="grid-presets"/);
+ assert.match(chrome.stdout,/id="grid-export"/);
+ assert.match(chrome.stdout,/id="grid-import-file"/);
+ assert.equal((chrome.stdout.match(/role="separator"/g)||[]).length,mode===1?0:mode===2?1:2);
  assert.match(chrome.stdout,/BTC \/ USDT/);
  if(mode>1)assert.match(chrome.stdout,/ETH \/ USDT/);
  assert.match(chrome.stdout,new RegExp(mode+' / '+mode+' FEEDS ACTIVE'));

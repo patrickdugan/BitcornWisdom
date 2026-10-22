@@ -41,4 +41,5 @@ jobs:
             live-browser-report.json
             kraken-live-preview.png
             binance-spot-live-preview.png
+            coinbase-live-preview.png
           if-no-files-found: ignore

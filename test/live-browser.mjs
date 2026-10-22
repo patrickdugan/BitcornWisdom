@@ -95,7 +95,7 @@ async function launchProbe({ name, query, debugPort }) {
     const deadline = Date.now() + 13000;
     do {
       state = await readState();
-      if (/checksum-verified|synchronized L2/.test(state.book) && state.bookRows > 0) break;
+      if (/checksum-verified|synchronized L2|snapshot-fed L2/.test(state.book) && state.bookRows > 0) break;
       if (state.error) break;
       await sleep(500);
     } while (Date.now() < deadline);
@@ -106,7 +106,7 @@ async function launchProbe({ name, query, debugPort }) {
     return {
       name, elapsedMs: Date.now() - started, ...state,
       priceRendered: /^[0-9,.]+$/.test(state.lastPrice || ''),
-      bookVerified: /checksum-verified|synchronized L2/.test(state.book || ''),
+      bookVerified: /checksum-verified|synchronized L2|snapshot-fed L2/.test(state.book || ''),
       screenshot: name + '-live-preview.png'
     };
   } catch (error) {
@@ -128,6 +128,9 @@ try {
   }));
   results.push(await launchProbe({
     name: 'binance-spot', query: '?market=spot&symbol=BTCUSDT&interval=5m&demo=0', debugPort: 9342
+  }));
+  results.push(await launchProbe({
+    name: 'coinbase', query: '?market=coinbase&symbol=BTCUSD&interval=5m&demo=0', debugPort: 9343
   }));
 } finally {
   server.kill();

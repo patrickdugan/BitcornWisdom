@@ -52,6 +52,7 @@ jobs:
             kraken-live-preview.png
             binance-spot-live-preview.png
             coinbase-live-preview.png
+            grid-live-live-preview.png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()

@@ -29,6 +29,12 @@ createServer(async (request, response) => {
     response.writeHead(400).end();
     return;
   }
+  // Serve only public application assets; never expose .git or repository files.
+  if (!(pathname === '/' || pathname === '/index.html' || pathname === '/styles.css' ||
+    /^\/src\/[a-z-]+\.js$/.test(pathname))) {
+    response.writeHead(404).end('Not found');
+    return;
+  }
   const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
   if (file !== root && !file.startsWith(root + sep)) {
     response.writeHead(403).end();

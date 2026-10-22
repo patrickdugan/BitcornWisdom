@@ -393,3 +393,6 @@ input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
   .book-row .bar{transition:none}
   .trade-row--new{animation:none}
 }
+
+html[data-motion="off"] .book-row .bar{transition:none}
+html[data-motion="off"] .trade-row--new{animation:none}

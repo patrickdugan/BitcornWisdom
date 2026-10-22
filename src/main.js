@@ -530,8 +530,9 @@ el('liquidity-speed').addEventListener('change', () => {
   if (liquidityReplayTimer !== null) startLiquidityPlayback();
 });
 el('liquidity-scrubber').addEventListener('input', () => {
+  const requestedIndex = Number(el('liquidity-scrubber').value);
   stopLiquidityPlayback();
-  heatmap.seek(Number(el('liquidity-scrubber').value));
+  heatmap.seek(requestedIndex);
 });
 el('liquidity-clear').addEventListener('click', async () => {
   if (!activeLiquiditySeries || !window.confirm(

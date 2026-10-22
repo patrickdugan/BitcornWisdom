@@ -1,11 +1,12 @@
-# v0.7 feature matrix
+# v0.8 feature matrix
 
 | Feature | Implementation | Follow-up |
 | --- | --- | --- |
 | Candles, volume, pan/zoom | Canvas2D chart | 100k-bar benchmarks |
 | Themes | Noir, Afterhours, Verdigris with matching Canvas palettes | Theme export/import |
 | Market navigation | Command deck, local favorites, discover shortcuts | Exchange-wide symbol discovery |
-| Workspace panels | Collapsible watchlist and order-book; responsive drawer | Multi-chart layouts |
+| Workspace panels | Collapsible watchlist and order-book; responsive drawer | Resizable custom layouts |
+| Multi-chart grid | Separate 1/2/4 chart desk, per-cell venue/symbol/interval, optional crosshair and approximate bar-offset range sync | Continuous time-range sync, shared drawing toolbar |
 | Chart export | Client-side PNG snapshot | Annotation layers and sharing |
 | Bollinger 20/2σ | Price overlay plus basis | Configurable parameters |
 | RSI 14 | Independent oscillator strip under volume | More studies |

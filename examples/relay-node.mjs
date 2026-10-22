@@ -3,7 +3,7 @@
 // A relay of Kraken remains dependent on Kraken; it is not an independent oracle.
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fetchKrakenCandles, krakenSymbols, parseKrakenCandle, KRAKEN_INTERVALS } from '../src/kraken.js';
 import { normalizeCandle, resolveInstrument } from '../src/feed-policy.js';
 
@@ -194,8 +194,8 @@ export function makeRelayServer({
 
 // Default to loopback. For public access, place a rate-limited HTTPS/WSS
 // reverse proxy in front of this sample, with explicit origin policy.
-if (process.argv[1] && fileURLToPath(import.meta.url) ===
-  fileURLToPath(new URL('file://' + process.argv[1]))) {
+if (process.argv[1] &&
+  fileURLToPath(import.meta.url) === fileURLToPath(pathToFileURL(process.argv[1]))) {
   const port = Number(process.env.PORT || 8722);
   const host = process.env.HOST || '127.0.0.1';
   const relay = makeRelayServer({ allowedOrigin:process.env.CORS_ORIGIN || '*' });

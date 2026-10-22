@@ -161,7 +161,7 @@ export class CandleChart {
           this.priceTween = { from: oldPrice, to: candle.close, started: now };
         else this.priceTween = null;
       }
-      this.marketMetrics.noteUpdate(now);
+      this.marketMetrics?.noteUpdate(now);
     }
     this.cachedIndicators = null;
     this.requestDraw();
@@ -204,7 +204,7 @@ export class CandleChart {
       receivedAt: Date.now(), started: now };
     this.priceTween = this.canAnimate() && Number.isFinite(prior) ?
       { from: prior, to: trade.price, started: now } : null;
-    this.marketMetrics.noteUpdate(now);
+    this.marketMetrics?.noteUpdate(now);
     this.requestDraw();
   }
 
@@ -216,7 +216,7 @@ export class CandleChart {
       { from: this.depthPrepared, started: now } : null;
     this.depthPrepared = prepared;
     this.depthUpdatedAt = Date.now();
-    this.marketMetrics.noteUpdate(now);
+    this.marketMetrics?.noteUpdate(now);
     this.requestDraw();
   }
 

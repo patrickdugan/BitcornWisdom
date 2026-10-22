@@ -300,6 +300,11 @@ async function loadMarket() {
     if (settings.market === 'kraken') {
       stream = new KrakenStream(settings.symbol, settings.interval, callbacks).start();
     } else if (settings.market === 'coinbase') {
+      callbacks.onFeedWarning = (warning) => {
+        if (session !== current) return;
+        el('market-note').textContent = warning ?
+          'Coinbase data warning: ' + warning : 'Public Coinbase Exchange feeds · read only';
+      };
       callbacks.onResyncHistory = async () => {
         if (session !== current) return;
         if (resyncController) resyncController.abort();
@@ -312,6 +317,7 @@ async function loadMarket() {
             chart.setCandles(fresh, settings.interval, false);
             stream?.seedHistory(fresh);
             setPrice(fresh.at(-1).close);
+            callbacks.onFeedWarning?.(null);
           }
         } catch (error) {
           if (!active.signal.aborted) console.warn('Coinbase candle refresh failed', error);

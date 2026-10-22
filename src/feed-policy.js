@@ -69,11 +69,6 @@ export function feedPlan({ instrument = 'BTC-USD-SPOT', interval = '1m',
     label: market === 'spot' ? 'BINANCE SPOT' : market === 'futures' ?
       'BINANCE PERPETUAL' : market.toUpperCase()
   }));
-  if (preferred !== null && preferred !== undefined && preferred !== '') {
-    const priority = venues.findIndex((source) => source.market === preferred);
-    if (priority === -1) throw new RangeError('Preferred venue is incompatible with the instrument');
-    venues.unshift(...venues.splice(priority, 1));
-  }
   const seen = new Set();
   const normalizedRelays = relays.map((value, index) => {
     const baseUrl = safeRelayBase(value, { allowLocal });
@@ -82,7 +77,15 @@ export function feedPlan({ instrument = 'BTC-USD-SPOT', interval = '1m',
     return { id: 'relay:' + (index + 1), kind: 'relay', baseUrl,
       market: 'relay', symbol: instrument, instrument, interval, label: 'RELAY ' + (index + 1) };
   });
-  return [...venues, ...normalizedRelays];
+  const sources = [...venues, ...normalizedRelays];
+  if (preferred !== null && preferred !== undefined && preferred !== '') {
+    const priority = sources.findIndex(source =>
+      source.market === preferred || source.id === preferred);
+    if (priority === -1)
+      throw new RangeError('Preferred venue or relay is incompatible with the instrument');
+    sources.unshift(...sources.splice(priority, 1));
+  }
+  return sources;
 }
 
 export function normalizeCandle(row) {

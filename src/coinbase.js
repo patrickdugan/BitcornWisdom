@@ -31,11 +31,19 @@ export function parseCoinbaseHistory(body) {
   return candles.filter((c, i) => i === 0 || c.time !== candles[i - 1].time);
 }
 
-export async function fetchCoinbaseCandles(symbol, interval, signal, requester = fetch) {
+export async function fetchCoinbaseCandles(symbol, interval, signal, requester = fetch, endBefore = null) {
   checkCoinbase(symbol, interval);
   const product = coinbaseProduct(symbol);
+  const params = new URLSearchParams({ granularity: String(COINBASE_INTERVALS[interval]) });
+  if (endBefore !== null) {
+    if (!Number.isSafeInteger(endBefore) || endBefore < 1) throw new RangeError('Invalid history cursor');
+    const stop = endBefore - 1;
+    const start = Math.max(0, stop - 299 * INTERVAL_MS[interval]);
+    params.set('start', new Date(start).toISOString());
+    params.set('end', new Date(stop).toISOString());
+  }
   const url = 'https://api.exchange.coinbase.com/products/' + product +
-    '/candles?granularity=' + COINBASE_INTERVALS[interval];
+    '/candles?' + params.toString();
   const response = await requester(url, { signal, headers: { Accept: 'application/json' } });
   if (!response.ok) throw new Error('Coinbase Exchange HTTP ' + response.status);
   return parseCoinbaseHistory(await response.json());

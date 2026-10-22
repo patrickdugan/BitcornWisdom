@@ -55,10 +55,15 @@ function timeLabel(ms, interval) {
 
 /** Canvas2D OHLCV chart. One coordinate system is shared by candles, indicators, and drawings. */
 export class CandleChart {
-  constructor(canvas, { onDrawingsChange = () => {}, onHover = () => {} } = {}) {
+  constructor(canvas, { onDrawingsChange = () => {}, onHover = () => {}, onHistoryNeeded = null } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.candles = [];
+    this.maxCandleBars = 8000;
+    this.historyPending = false;
+    this.historyExhausted = false;
+    this.historyRetryAfter = 0;
+    this.onHistoryNeeded = onHistoryNeeded;
     this.interval = '1m';
     this.barWidth = 8;
     this.offsetBars = 0;
@@ -103,16 +108,62 @@ export class CandleChart {
   }
 
   setCandles(candles, interval, reset = true) {
-    this.candles = candles.slice();
+    this.candles = candles.slice(-this.maxCandleBars);
     this.interval = interval;
-    if (reset) this.offsetBars = 0;
+    if (reset) {
+      this.offsetBars = 0;
+      this.historyPending = false;
+      this.historyExhausted = false;
+      this.historyRetryAfter = 0;
+    }
     this.requestDraw();
   }
 
   updateCandle(candle) {
-    const result = upsertCandle(this.candles, candle, 1200);
+    const result = upsertCandle(this.candles, candle, this.maxCandleBars);
     this.requestDraw();
     return result;
+  }
+
+  /** Prepend older exchange bars without moving the current visible candles. */
+  prependHistory(older) {
+    if (!Array.isArray(older) || !older.length || !this.candles.length) return 0;
+    const firstTime = this.candles[0].time;
+    const unique = new Map();
+    for (const candle of older) {
+      if (candle.time < firstTime) unique.set(candle.time, candle);
+    }
+    const preceding = [...unique.values()].sort((a, b) => a.time - b.time);
+    const room = Math.max(0, this.maxCandleBars - this.candles.length);
+    if (!room || !preceding.length) return 0;
+    const added = preceding.slice(-room);
+    this.candles = [...added, ...this.candles];
+    this.requestDraw();
+    return added.length;
+  }
+
+  /** Refresh the newest bars while retaining previously paged older history. */
+  replaceRecentHistory(recent) {
+    const merged = new Map(this.candles.map((c) => [c.time, c]));
+    for (const candle of recent) merged.set(candle.time, candle);
+    this.candles = [...merged.values()].sort((a, b) => a.time - b.time)
+      .slice(-this.maxCandleBars);
+    this.requestDraw();
+  }
+
+  maybeNeedHistory() {
+    if (!this.onHistoryNeeded || this.historyExhausted || this.historyPending ||
+        Date.now() < this.historyRetryAfter || this.candles.length >= this.maxCandleBars ||
+        this.candles.length === 0) return;
+    if (this.computeFrame().start > 24) return;
+    this.historyPending = true;
+    Promise.resolve().then(() => this.onHistoryNeeded()).then((loaded) => {
+      if (loaded === false) this.historyExhausted = true;
+      else if (loaded === null) this.historyRetryAfter = Date.now() + 10000;
+    }).catch((error) => {
+      console.warn('Could not load older candles:', error);
+      this.historyRetryAfter = Date.now() + 10000;
+    }).finally(() => { this.historyPending = false; });
   }
 
   setOptions(options) {
@@ -404,6 +455,7 @@ export class CandleChart {
     }
     const index = Math.round((this.frame || this.computeFrame()).coordinates.index(this.pointer.x));
     this.onHover(this.candles[index] || null);
+    if (this.drag) this.maybeNeedHistory();
     this.requestDraw();
   }
 
@@ -429,6 +481,7 @@ export class CandleChart {
     const right = this.width - 80;
     this.offsetBars = clamp(this.candles.length - 1 + this.gap -
       oldIndex - (right - x) / this.barWidth, -this.candles.length + 6, 60);
+    this.maybeNeedHistory();
     this.requestDraw();
   }
 
@@ -448,6 +501,7 @@ export class CandleChart {
       this.resetView();
     } else return;
     event.preventDefault();
+    this.maybeNeedHistory();
     this.requestDraw();
   }
 

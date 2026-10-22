@@ -6,7 +6,9 @@ import { INTERVAL_MS } from './core.js';
 export class FeedRouter {
   constructor({ sources, openSource, onSource = () => {}, onHistory = () => {},
     onCandle = () => {}, onStatus = () => {}, onError = () => {},
-    clock = () => Date.now(), schedule = setInterval, cancel = clearInterval,
+    clock = () => Date.now(),
+    schedule = (callback, ms) => setInterval(callback, ms),
+    cancel = handle => clearInterval(handle),
     checkEveryMs = 1000, staleMs = 30000, disruptedGraceMs = 3000,
     connectTimeoutMs = 12000, retryMs = 10000 } = {}) {
     if (!Array.isArray(sources) || !sources.length || sources.some(x => !x?.id))

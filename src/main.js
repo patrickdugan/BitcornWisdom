@@ -5,6 +5,7 @@ import { CandleChart } from './chart.js';
 import { formatCompact, formatPrice, INTERVALS } from './core.js';
 import { makeDemoCandles, makeDemoDepth, nextDemoCandle } from './demo.js';
 import { LiquidityHeatmap } from './heatmap.js';
+import { LiquidityArchive, liquiditySeriesKey, ARCHIVE_POLICY } from './liquidity-archive.js';
 
 const el = (id) => document.getElementById(id);
 const STORAGE_KEY = 'bitcornwisdom:settings:v1';
@@ -55,7 +56,10 @@ function updateTimeframeOptions() {
 const chart = new CandleChart(el('candle-chart'), {
   onDrawingsChange: (drawings) => writeStored(drawingKey(), drawings)
 });
-const heatmap = new LiquidityHeatmap(el('liquidity-heatmap'));
+const heatmap = new LiquidityHeatmap(el('liquidity-heatmap'), {
+  onChange: (state) => updateLiquidityControls(state)
+});
+const archive = new LiquidityArchive();
 chart.setOptions({
   showEMA: settings.showEMA, showSMA: settings.showSMA, logarithmic: settings.logarithmic
 });
@@ -71,6 +75,89 @@ let lastBookRender = 0;
 let lastTradeRender = 0;
 let trades = [];
 let demoTick = 0;
+let activeLiquiditySeries = null;
+let liquidityStorageFailure = null;
+let liquidityReplayTimer = null;
+
+function formatRecordedTime(ms) {
+  return ms ? new Date(ms).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : 'Collecting observations…';
+}
+
+function updateLiquidityControls(state) {
+  const count = state.count;
+  const scrubber = el('liquidity-scrubber');
+  scrubber.max = String(Math.max(0, count - 1));
+  scrubber.value = String(state.index);
+  scrubber.disabled = count < 2;
+  el('liquidity-count').textContent = count.toLocaleString('en-US') + ' samples';
+  el('liquidity-time').textContent = (state.mode === 'replay' ? 'Replay · ' : 'Observed · ') +
+    formatRecordedTime(state.at);
+  el('liquidity-replay').disabled = count < 2;
+  el('liquidity-play').disabled = count < 2;
+  el('liquidity-play').textContent = liquidityReplayTimer !== null ? 'Ⅱ Pause' : '▶ Play';
+  el('liquidity-live').classList.toggle('active', state.mode === 'live');
+  el('liquidity-live').setAttribute('aria-pressed', String(state.mode === 'live'));
+  el('liquidity-replay').classList.toggle('active', state.mode === 'replay');
+  el('liquidity-replay').setAttribute('aria-pressed', String(state.mode === 'replay'));
+}
+
+function archiveStatus(note) {
+  el('liquidity-storage').textContent = note;
+}
+
+function archiveFailed(error) {
+  liquidityStorageFailure = error.message || String(error);
+  archiveStatus('Memory only · local archive unavailable: ' + liquidityStorageFailure);
+  console.warn('Liquidity archive:', error);
+}
+
+function stopLiquidityPlayback() {
+  if (liquidityReplayTimer !== null) clearInterval(liquidityReplayTimer);
+  liquidityReplayTimer = null;
+  updateLiquidityControls(heatmap.getState());
+}
+
+function startLiquidityPlayback() {
+  stopLiquidityPlayback();
+  if (heatmap.history.length < 2) return;
+  if (heatmap.mode !== 'replay') heatmap.seek(Math.max(0, heatmap.history.length - 160));
+  const speed = Number(el('liquidity-speed').value) || 4;
+  liquidityReplayTimer = setInterval(() => {
+    if (heatmap.replayIndex >= heatmap.history.length - 1) {
+      stopLiquidityPlayback();
+      return;
+    }
+    heatmap.seek(heatmap.replayIndex + 1);
+  }, Math.max(60, Math.round(1000 / speed)));
+  updateLiquidityControls(heatmap.getState());
+}
+
+function activateLiquidityArchive(current) {
+  const series = liquiditySeriesKey(settings.market, settings.symbol, settings.demo);
+  activeLiquiditySeries = series;
+  liquidityStorageFailure = null;
+  heatmap.clear(series);
+  archiveStatus('IndexedDB · restoring local samples…');
+  archive.load(series).then((samples) => {
+    if (session !== current || activeLiquiditySeries !== series) return;
+    heatmap.restore(samples, series);
+    archiveStatus('IndexedDB active · sampled depth · 24h age limit');
+    archive.prune().catch((error) => {
+      if (session === current) archiveFailed(error);
+    });
+  }).catch((error) => {
+    if (session === current && activeLiquiditySeries === series) archiveFailed(error);
+  });
+}
+
+function captureLiquidity(book, price) {
+  const sample = heatmap.ingest(book, price);
+  if (!sample || liquidityStorageFailure) return;
+  const series = activeLiquiditySeries;
+  archive.save(sample).catch((error) => {
+    if (series === activeLiquiditySeries) archiveFailed(error);
+  });
+}
 
 function drawingKey() {
   return DRAWINGS_PREFIX + [settings.market, settings.symbol, settings.interval].join(':');
@@ -208,6 +295,7 @@ function addTrade(trade) {
 
 function stopFeed() {
   session += 1;
+  stopLiquidityPlayback();
   if (controller) { controller.abort(); controller = null; }
   if (resyncController) { resyncController.abort(); resyncController = null; }
   if (historyController) { historyController.abort(); historyController = null; }
@@ -234,7 +322,7 @@ function startDemo(version) {
     const time = Date.now();
     const book = makeDemoDepth(candle.close, time);
     renderBook(book);
-    heatmap.ingest(book, candle.close);
+    captureLiquidity(book, candle.close);
     addTrade({ time, price: candle.close, quantity: 0.02 + Math.abs(Math.sin(demoTick) * .8),
       side: demoTick % 2 ? 'buy' : 'sell' });
   };
@@ -253,6 +341,7 @@ async function loadMarket() {
   updateButtons();
   persist();
   clearTapeAndBook();
+  activateLiquidityArchive(current);
   chart.setCandles([], settings.interval);
   chart.onHistoryNeeded = settings.demo || settings.market === 'kraken' ? null : async () => {
     if (session !== current || !chart.candles.length) return false;
@@ -306,7 +395,7 @@ async function loadMarket() {
       if (session !== current) return;
       const latest = chart.candles.at(-1);
       const center = latest?.close ?? ((book.bids[0][0] + book.asks[0][0]) / 2);
-      heatmap.ingest(book, center);
+      captureLiquidity(book, center);
       if (Date.now() - lastBookRender > 240) {
         lastBookRender = Date.now();
         renderBook(book);
@@ -424,10 +513,48 @@ el('demo-toggle').addEventListener('click', () => {
   settings.demo = !settings.demo;
   loadMarket();
 });
+
+el('liquidity-replay').addEventListener('click', () => {
+  stopLiquidityPlayback();
+  if (heatmap.history.length >= 2) heatmap.seek(Math.max(0, heatmap.history.length - 160));
+});
+el('liquidity-live').addEventListener('click', () => {
+  stopLiquidityPlayback();
+  heatmap.goLive();
+});
+el('liquidity-play').addEventListener('click', () => {
+  if (liquidityReplayTimer !== null) stopLiquidityPlayback();
+  else startLiquidityPlayback();
+});
+el('liquidity-speed').addEventListener('change', () => {
+  if (liquidityReplayTimer !== null) startLiquidityPlayback();
+});
+el('liquidity-scrubber').addEventListener('input', () => {
+  const requestedIndex = Number(el('liquidity-scrubber').value);
+  stopLiquidityPlayback();
+  heatmap.seek(requestedIndex);
+});
+el('liquidity-clear').addEventListener('click', async () => {
+  if (!activeLiquiditySeries || !window.confirm(
+    'Erase locally recorded liquidity for this exchange and symbol?'
+  )) return;
+  stopLiquidityPlayback();
+  const series = activeLiquiditySeries;
+  const current = session;
+  try {
+    await archive.clearSeries(series);
+    if (session !== current || series !== activeLiquiditySeries) return;
+    heatmap.clear(series);
+    archiveStatus('Local history erased · recording fresh observations');
+  } catch (error) {
+    if (session === current) archiveFailed(error);
+  }
+});
 window.addEventListener('beforeunload', () => {
   stopFeed();
   chart.destroy();
   heatmap.destroy();
+  archive.close();
 });
 
 loadMarket();

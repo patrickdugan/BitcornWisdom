@@ -7,9 +7,9 @@
 
 Inspired by the feel of the original BitcoinWisdom charts. Built with a homegrown Canvas2D renderer, native browser JavaScript, and **zero npm dependencies**. No TradingView widget, Lightweight Charts package, Pine Script, broker login, or API key.
 
-## The open-market desk (v0.7)
+## The open-market desk (v0.8)
 
-The latest workspace has a three-panel terminal layout, with a customizable color theme and quick access to the markets you follow.
+The classic workspace has a three-panel terminal layout with customizable themes and a local watchlist. The new [multi-chart desk](grid.html) opens one, two, or four independent market charts simultaneously, with optional crosshair and pan/zoom synchronization.
 
 | Charting | Desk and navigation | Liquidity and data |
 | --- | --- | --- |
@@ -32,11 +32,18 @@ Open http://127.0.0.1:5173/ for public market feeds. Open http://127.0.0.1:5173/
 
     npm run check          # syntax checks and deterministic unit tests
     npm run smoke          # headless Chrome demo hydration
+    npm run smoke:grid     # 1/2/4 chart offline grid hydration
     npm run smoke:archive  # IndexedDB, replay, workspace UI and drawing interactions
     npm run probe:live     # optional public exchange reachability
     npm run browser:live   # optional live Chrome integration
 
 Static hosting also works: index.html uses relative asset paths, so the site can be served from a subdirectory with HTTPS. See [hosting guidance](docs/HOSTING.md) for local and static setups, browser permissions and exchange restrictions.
+
+### Multi-chart grids
+
+Open **http://127.0.0.1:5173/grid.html?demo=1&mode=4** to preview four charts offline, or remove `demo=1` for live public feeds. Each pane has its own venue, symbol, timeframe, candle chart, and WebSocket lifecycle. Switching layouts stops inactive chart subscriptions. Your layout choices persist in localStorage. Optional synchronized crosshairs mark the same candle timestamp across charts; synchronized zoom/pan follows approximate bar offsets and is most meaningful when the timeframes match. The classic single-chart workspace remains at `index.html`.
+
+See [grid architecture](docs/MULTICHART.md) for guarantees and limits.
 
 ### The keyboard workflow
 

@@ -71,6 +71,7 @@ test('public Kraken or equivalent USD spot chart opens and displays live price',
         state:document.querySelector('#embed-connection')?.dataset.state,
         source:document.querySelector('#embed-source')?.textContent,
         price:document.querySelector('#embed-price')?.textContent,
+        age:document.querySelector('#embed-age')?.textContent,
         error:document.querySelector('#embed-error:not([hidden])')?.textContent || ''
       }))()`,returnByValue:true});
       return value.result?.value;
@@ -78,7 +79,11 @@ test('public Kraken or equivalent USD spot chart opens and displays live price',
     const state=await until(async()=>{
       const current=await read();
       if(current?.error)throw Error(current.error);
-      return current?.state==='live'&&/^[0-9,.]+$/.test(current.price)?current:null;
+      // REST history may paint a price before any streaming candle arrives.
+      // Require the footer to leave HISTORY after a genuine WS update.
+      const receivedCandle = /^(LIVE TICK|[0-9]+s AGO)$/.test(current?.age || '');
+      return current?.state==='live' && /^[0-9,.]+$/.test(current.price) &&
+        receivedCandle ? current : null;
     },30000).catch(async error=>{
       throw Error(error.message+'; last snapshot: '+JSON.stringify(await read().catch(()=>null)));
     });

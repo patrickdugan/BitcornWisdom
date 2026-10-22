@@ -52,8 +52,9 @@ function setStatus(state, reason, source) {
     (reason || 'Source health monitored');
   if (source) {
     currentSource = source;
-    el('embed-source').textContent = source.kind === 'relay' ?
-      'RELAY ' + source.sourceId.replace('relay:', '') : source.venue.toUpperCase();
+    el('embed-source').textContent = source.kind === 'demo' ? 'SYNTHETIC DEMO' :
+      source.kind === 'relay' ? 'RELAY ' + source.sourceId.replace('relay:', '') :
+      source.venue.toUpperCase();
     el('embed-source').dataset.source = source.sourceId;
   } else if (state !== 'demo') {
     currentSource = null;

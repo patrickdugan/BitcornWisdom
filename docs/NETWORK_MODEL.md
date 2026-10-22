@@ -36,6 +36,21 @@ Official docs:
 - https://docs.kraken.com/api/docs/websocket-v2/book/
 - https://docs.kraken.com/api/docs/guides/spot-ws-book-v2/
 
+## Coinbase Exchange Spot
+
+REST candles: https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=300
+
+Public WebSocket: wss://ws-feed.exchange.coinbase.com
+
+Subscribe to level2_batch, matches and heartbeat for BTC-USD. The Exchange REST candle format is [Unix seconds, low, high, open, close, base volume], in reverse chronological order with up to 300 bars per request. Supported intervals: 60, 300, 900, 3600, 21600 and 86400 seconds.
+
+The unauthenticated level2_batch feed sends a book snapshot followed by ordered, absolute-quantity l2update messages. The consumer bounds storage to 1,000 known levels and resubscribes on reconnect. The matches channel gives per-trade price, size and maker side; maker side is inverted for the taker-aggressor tape. Because matches messages may be dropped, heartbeat last_trade_id monitors progress, with a grace interval and cooldown before refreshing REST history. Restored OHLCV can still have data gaps; no archival replay service exists.
+
+Sources:
+- https://docs.cdp.coinbase.com/exchange/websocket-feed/overview
+- https://docs.cdp.coinbase.com/exchange/websocket-feed/channels
+- https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles
+
 ## Endpoint probe
 
-On October 22, 2026, GitHub Actions reported six successful public endpoints: Binance Spot REST candles/WS trades, Binance Futures WS aggTrade/diff-depth, Kraken REST OHLC, and a CRC-valid Kraken WebSocket book. Binance Futures REST responded HTTP 451 from the runner. These observations describe that network only and do not guarantee browser reachability. The raw report is an optional CI artifact.
+On October 22, 2026, GitHub Actions reported eight successful public endpoints: Binance Spot REST candles/WS trades, Binance Futures WS aggTrade/diff-depth, Kraken REST OHLC and a CRC-valid Kraken book, plus Coinbase REST candles and a Level 2 WebSocket snapshot. Binance Futures REST responded HTTP 451 from the runner. These observations describe that network only and do not guarantee browser reachability. The raw report is an optional CI artifact.

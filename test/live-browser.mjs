@@ -7,7 +7,10 @@ import { join } from 'node:path';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const port = 5192;
-const server = spawn(process.execPath, ['server.mjs'], {
+const publicBase = process.env.BITCORN_PUBLIC_URL ?
+  new URL(process.env.BITCORN_PUBLIC_URL.endsWith('/') ?
+    process.env.BITCORN_PUBLIC_URL : process.env.BITCORN_PUBLIC_URL + '/') : null;
+const server = publicBase ? null : spawn(process.execPath, ['server.mjs'], {
   env: { ...process.env, PORT: String(port), HOST: '127.0.0.1' }, stdio: 'ignore'
 });
 
@@ -63,7 +66,8 @@ function rpcClient(ws) {
 
 async function launchProbe({ name, query, debugPort }) {
   const profile = await mkdtemp(join(tmpdir(), 'bitcorn-live-'));
-  const url = 'http://127.0.0.1:' + port + '/' + query;
+  const url = publicBase ? new URL('index.html' + query, publicBase).href :
+    'http://127.0.0.1:' + port + '/' + query;
   const chrome = spawn(process.env.CHROME_BIN || 'google-chrome', [
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
     '--no-first-run', '--disable-background-networking', '--window-size=1440,900',
@@ -78,7 +82,7 @@ async function launchProbe({ name, query, debugPort }) {
         signal: AbortSignal.timeout(1000)
       });
       const pages = await response.json();
-      return pages.find((p) => p.type === 'page' && p.url.includes('127.0.0.1:' + port));
+      return pages.find((p) => p.type === 'page' && p.url === url);
     }, 8000);
     ws = await connectDevtools(target.webSocketDebuggerUrl);
     const send = rpcClient(ws);
@@ -142,7 +146,12 @@ async function launchProbe({ name, query, debugPort }) {
 
 const results = [];
 try {
-  await until(async () => (await fetch('http://127.0.0.1:' + port)).ok, 8000);
+  await until(async () => {
+    const location = publicBase ? new URL('index.html', publicBase).href :
+      'http://127.0.0.1:' + port;
+    const response = await fetch(location, { signal: AbortSignal.timeout(4000) });
+    return response.ok;
+  }, publicBase ? 60000 : 8000);
   results.push(await launchProbe({
     name: 'kraken', query: '?market=kraken&symbol=BTCUSD&interval=5m&demo=0', debugPort: 9341
   }));
@@ -153,10 +162,11 @@ try {
     name: 'coinbase', query: '?market=coinbase&symbol=BTCUSD&interval=5m&demo=0', debugPort: 9343
   }));
 } finally {
-  server.kill();
+  server?.kill();
 }
-await writeFile('live-browser-report.json', JSON.stringify({
+await writeFile(publicBase ? 'hosted-live-browser-report.json' : 'live-browser-report.json', JSON.stringify({
   generatedAt: new Date().toISOString(),
+  source: publicBase?.href || 'localhost',
   caveat: 'Browser observations depend on runner network, CORS and exchange accessibility',
   results
 }, null, 2) + '\n');

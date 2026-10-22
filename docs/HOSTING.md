@@ -14,13 +14,49 @@ Bind a different interface or port as needed:
 
 Use trusted interfaces or a correctly configured HTTPS reverse proxy when exposing the local server.
 
-## Static hosting and GitHub Pages
+## Public HTTPS live preview on GitHub Pages
 
-The root index.html loads styles.css, favicon.svg and the src modules through relative paths. Any ordinary static host may serve the project from its root or a subdirectory; URL navigation uses only query parameters for exchange, symbol and timeframe.
+The repository includes [the publishing workflow](../.github/workflows/pages.yml).
+On every relevant push to `main` and on manual dispatch it stages only:
+`index.html`, `grid.html`, the two stylesheets, favicon, and `src/*.js`.
+The workflow uses `actions/upload-pages-artifact` and `actions/deploy-pages`
+to publish HTTPS static assets. The local Node server is not deployed.
 
-For GitHub Pages, choose your repository's Pages deployment source and publish the repository root through its static-site workflow. This repo does not automatically enable GitHub Pages or turn on public hosting.
+**One-time GitHub setting:** In **Settings → Pages → Build and deployment → Source**,
+choose **GitHub Actions**. This is required if Pages has not already been
+activated on the repository. Re-run **Actions → Public live preview → Run workflow**
+on `main` once the source is selected.
 
-Cloudflare Pages, Netlify and Nginx can also serve the root without a build command.
+When deployment succeeds, the expected endpoints are:
+
+- Classic desk, live Kraken 1m: `https://patrickdugan.github.io/BitcornWisdom/index.html?market=kraken&symbol=BTCUSD&interval=1m&demo=0`
+- Multi-chart workstation: `https://patrickdugan.github.io/BitcornWisdom/grid.html?mode=4&demo=0`
+- Offline fallback: `https://patrickdugan.github.io/BitcornWisdom/index.html?demo=1`
+
+GitHub Pages publishes static files and has **no exchange proxy or backend
+runtime**. The visitor's browser directly opens public WebSockets and REST
+requests to Kraken, Coinbase or Binance, so exchange availability and
+geographical restrictions are visitor-specific. The real feed shows `LIVE`,
+real price data, a current trade tape, and synchronized book depth.
+The offline demo is clearly marked as synthetic.
+
+The deployment workflow tests public HTML and module URLs, then runs an
+advisory Chrome exchange probe against the deployed origin. Inspect its
+`public-live-preview-evidence` Actions artifact for JSON probe results and
+screenshots. If a venue is blocked by region or network, another supported
+public venue can be selected from the classic desk. Browser settings and
+replay data remain local to each site's origin.
+
+The repository's GitHub Actions token cannot create or enable the GitHub
+Pages site by itself; this one-time source setting belongs to a repository
+administrator. No exchange credentials or API keys are required.
+
+## Other static hosts
+
+The application has no build dependencies. Other HTTPS hosts such as Vercel,
+Cloudflare Pages and Netlify can serve exactly the same public asset set.
+Root-relative references are avoided, making the site compatible with
+subdirectory mounts and CDN prefixes.
 
 ## Network and privacy
 

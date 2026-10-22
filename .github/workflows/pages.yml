@@ -1,0 +1,85 @@
+name: Public live preview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pages.yml
+      - index.html
+      - grid.html
+      - styles.css
+      - grid.css
+      - favicon.svg
+      - src/**
+  workflow_dispatch:
+
+concurrency:
+  group: github-pages-preview
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage only public site assets
+        run: |
+          set -euo pipefail
+          mkdir -p _site/src
+          cp index.html grid.html styles.css grid.css favicon.svg _site/
+          cp src/*.js _site/src/
+          touch _site/.nojekyll
+          test -f _site/index.html
+          test -f _site/grid.html
+          test -f _site/src/main.js
+          test -f _site/src/market-motion.js
+          test -f _site/src/grid.js
+          # The published artifact contains no local files, workflow inputs or repo metadata.
+          find _site -type f | sort
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload public static assets
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy live preview
+        id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Validate published HTML and chart modules
+        env:
+          LIVE_SITE: ${{ steps.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          test -n "$LIVE_SITE"
+          for route in index.html grid.html src/main.js src/market-motion.js src/grid.js; do
+            curl --fail --silent --show-error --location --retry 12 --retry-delay 5 --retry-all-errors "${LIVE_SITE%/}/$route" -o /dev/null
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exercise direct exchange feeds from hosted Chrome
+        env:
+          BITCORN_PUBLIC_URL: ${{ steps.deploy.outputs.page_url }}
+        run: npm run browser:live
+        continue-on-error: true
+        timeout-minutes: 3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-live-preview-evidence
+          path: |
+            hosted-live-browser-report.json
+            kraken-live-preview.png
+            coinbase-live-preview.png
+            binance-spot-live-preview.png
+          if-no-files-found: ignore

@@ -9,6 +9,10 @@ Inspired by the feel of the original BitcoinWisdom charts. Built with a homegrow
 
 **Live market motion (v0.10).** The classic desk now paints an animated cumulative bid/ask depth profile next to the price scale, a trade-responsive market marker, and short transitions on the current candle. Order-book quantity bars animate in place and fresh trades enter with a subtle flash. The `Motion` button controls visual transitions; operating-system reduced-motion settings disable them. A small footer readout shows observed Canvas draw p95, update-to-draw p95, and active frame rate from the local browser. Raw exchange candles, confirmed book snapshots and trade records always remain authoritative. The depth profile depends on the available L2 levels and the chart's visible price range. This renderer interpolates visuals for a fraction of a second; it never creates exchange observations.
 
+## Hosted live preview
+
+Once GitHub Pages is enabled, the expected URL for [Kraken BTC/USD 1m live](https://patrickdugan.github.io/BitcornWisdom/index.html?market=kraken&symbol=BTCUSD&interval=1m&demo=0) is hosted through the [Public live preview workflow](.github/workflows/pages.yml). See [Hosting](docs/HOSTING.md) for setup and validation.
+
 ## The open-market desk (v0.8)
 
 The classic workspace has a three-panel terminal layout with customizable themes and a local watchlist. The new [multi-chart desk](grid.html) opens one, two, or four independent market charts simultaneously, with optional crosshair and pan/zoom synchronization.

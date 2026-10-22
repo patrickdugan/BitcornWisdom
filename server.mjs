@@ -30,7 +30,7 @@ createServer(async (request, response) => {
     return;
   }
   // Serve only public application assets; never expose .git or repository files.
-  if (!(pathname === '/' || pathname === '/index.html' || pathname === '/grid.html' || pathname === '/styles.css' || pathname === '/grid.css' || pathname === '/favicon.svg' ||
+  if (!(pathname === '/' || pathname === '/index.html' || pathname === '/grid.html' || pathname === '/embed.html' || pathname === '/styles.css' || pathname === '/grid.css' || pathname === '/embed.css' || pathname === '/favicon.svg' ||
     /^\/src\/[a-z-]+\.js$/.test(pathname))) {
     response.writeHead(404).end('Not found');
     return;
@@ -43,6 +43,13 @@ createServer(async (request, response) => {
   try {
     const info = await stat(file);
     if (!info.isFile()) throw new Error('Not a file');
+    // The standalone embed may be framed by third-party applications.
+    // The full trading desk keeps its original anti-framing policy.
+    const isEmbed = pathname === '/embed.html';
+    const connectPolicy = isEmbed ?
+      "connect-src 'self' https: wss: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*; " :
+      "connect-src 'self' https://data-api.binance.vision https://api.binance.com https://fapi.binance.com https://api.kraken.com https://api.exchange.coinbase.com " +
+      "wss://data-stream.binance.vision wss://fstream.binance.com wss://ws.kraken.com wss://ws-feed.exchange.coinbase.com; ";
     response.writeHead(200, {
       'Content-Type': mime[extname(file)] || 'application/octet-stream',
       'Content-Length': info.size,
@@ -50,9 +57,9 @@ createServer(async (request, response) => {
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
       'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-        "connect-src 'self' https://data-api.binance.vision https://api.binance.com https://fapi.binance.com https://api.kraken.com https://api.exchange.coinbase.com " +
-        "wss://data-stream.binance.vision wss://fstream.binance.com wss://ws.kraken.com wss://ws-feed.exchange.coinbase.com; " +
-        "img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+        connectPolicy +
+        "img-src 'self' data:; object-src 'none'; base-uri 'none'" +
+        (isEmbed ? '' : "; frame-ancestors 'none'")
     });
     if (request.method === 'HEAD') response.end();
     else createReadStream(file).pipe(response);

@@ -92,6 +92,26 @@ select:hover, input:hover { border-color: #67798a; }
   text-align: center; padding: 9px 0; }
 .heatmap-frame { height: 155px; flex: none; margin: 0 7px 7px; overflow: hidden; border: 1px solid #2a3843; }
 #liquidity-heatmap { display: block; width: 100%; height: 100%; }
+.liquidity-controls { flex: none; min-height: 31px; display: flex; gap: 4px;
+  align-items: center; padding: 2px 7px; background: #111e28; }
+.liquidity-controls .tool { font-size: 10px; padding: 0 7px; border: 1px solid #2c4050;
+  height: 25px; flex: 1; }
+.liquidity-controls select { height: 25px; min-width: 52px; padding: 0 4px;
+  font: 10px ui-monospace, monospace; }
+.liquidity-controls .tool:disabled { cursor: not-allowed; opacity: .38; }
+.liquidity-scrub { flex: none; height: 27px; display: flex; align-items: center;
+  gap: 7px; padding: 1px 9px; background: #111e28; }
+.liquidity-scrub input { flex: 1; min-width: 30px; height: 12px; accent-color: #cfb481;
+  cursor: pointer; }
+.liquidity-scrub input:disabled { opacity: .35; cursor: default; }
+.liquidity-scrub span { width: 75px; text-align: right; white-space: nowrap;
+  font: 10px ui-monospace, monospace; color: #9aabba; }
+.liquidity-meta { display: flex; flex: none; align-items: center; justify-content: space-between;
+  gap: 4px; padding: 3px 10px 3px; color: #b8c6ce; font: 10px ui-monospace, monospace; }
+.liquidity-meta .text-link { font-size: 10px; }
+.liquidity-storage { flex: none; min-height: 23px; padding: 4px 10px 5px;
+  color: #7e929f; background: #0d1720; border-bottom: 1px solid #2a3945;
+  font: 10px ui-monospace, monospace; white-space: normal; }
 .trades { flex: 1 0 100px; overflow: auto; min-height: 100px; }
 .trade-row { display: flex; justify-content: space-between; padding: 3px 13px;
   font: 11px ui-monospace, monospace; gap: 5px; }

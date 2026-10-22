@@ -82,7 +82,28 @@
         <div class="side-header secondary"><h2>Liquidity history</h2>
           <span class="muted">LIVE · BINNED L2</span></div>
         <div id="heatmap-frame" class="heatmap-frame">
-          <canvas id="liquidity-heatmap" aria-label="Recent order-book liquidity heatmap"></canvas>
+          <canvas id="liquidity-heatmap" aria-label="Recorded order-book liquidity heatmap"></canvas>
+        </div>
+        <div class="liquidity-controls" aria-label="Liquidity replay controls">
+          <button id="liquidity-replay" class="tool" type="button" disabled>Replay</button>
+          <button id="liquidity-play" class="tool" type="button" disabled>▶ Play</button>
+          <select id="liquidity-speed" aria-label="Replay speed">
+            <option value="1">1×</option><option value="4" selected>4×</option>
+            <option value="16">16×</option>
+          </select>
+          <button id="liquidity-live" class="tool active" type="button" aria-pressed="true">● Live</button>
+        </div>
+        <div class="liquidity-scrub">
+          <input id="liquidity-scrubber" aria-label="Recorded liquidity timeline" type="range"
+            min="0" max="0" value="0" step="1" disabled>
+          <span id="liquidity-count">0 samples</span>
+        </div>
+        <div class="liquidity-meta">
+          <span id="liquidity-time" aria-live="polite">Collecting observations…</span>
+          <button id="liquidity-clear" class="text-link" type="button">Erase</button>
+        </div>
+        <div id="liquidity-storage" class="liquidity-storage" role="status" aria-live="polite">
+          Local archive · restoring…
         </div>
         <div class="side-header secondary"><h2>Recent trades</h2><span class="muted">BTC/quote</span></div>
         <div class="depth-caption"><span>Price</span><span>Quantity</span><span>UTC</span></div>

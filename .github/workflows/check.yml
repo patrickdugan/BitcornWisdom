@@ -13,6 +13,8 @@ jobs:
           node-version: '22'
       - run: npm run check
       - run: npm run smoke
+      - run: npm run smoke:archive
+        timeout-minutes: 2
       - run: npm run probe:live
         if: github.event_name == 'push'
         continue-on-error: true
@@ -42,4 +44,10 @@ jobs:
             kraken-live-preview.png
             binance-spot-live-preview.png
             coinbase-live-preview.png
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bitcorn-liquidity-replay
+          path: bitcorn-liquidity-replay.png
           if-no-files-found: ignore

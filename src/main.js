@@ -608,6 +608,9 @@ chartGrid = mountChartGrid({
 workspaceUI = mountWorkspace({
   settings, chart, persist, loadMarket, validateSelection,
   setIndicator: toggleIndicator, setDrawingTool: applyDrawingTool,
-  onThemeChange: (theme) => chartGrid?.setTheme(theme)
+  onThemeChange: (theme) => chartGrid?.setTheme(theme),
+  onSetLayout: (count) => chartGrid?.setLayout(count),
+  onToggleTimeLink: () => chartGrid?.setLinkTime(!settings.gridLinkTime),
+  onToggleCursorLink: () => chartGrid?.setLinkCursor(!settings.gridLinkCursor)
 });
 loadMarket();

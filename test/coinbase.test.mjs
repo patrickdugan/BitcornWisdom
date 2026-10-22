@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   COINBASE_INTERVALS, coinbaseProduct, checkCoinbase,
   parseCoinbaseHistory, fetchCoinbaseCandles, parseCoinbaseTrade,
-  CoinbaseCandleBuilder, CoinbaseBook
+  CoinbaseCandleBuilder, CoinbaseBook, CoinbaseTradeGapMonitor, CoinbaseStream
 } from '../src/coinbase.js';
 
 test('Coinbase products and permitted timeframes are explicit', () => {
@@ -97,4 +97,46 @@ test('Coinbase L2 rejects crossed/invalid books and bounds storage', () => {
   assert.throws(() => book.apply({
     type: 'l2update', changes: [['nonsense','100','2']]
   }), /side/);
+});
+
+
+test('Coinbase heartbeat monitor distinguishes short feed lag from persistent trade gaps', () => {
+  const monitor = new CoinbaseTradeGapMonitor(2500, 30000);
+  assert.equal(monitor.observe(101, -1, 0), false);
+  assert.equal(monitor.observe(105, 100, 1000), false);
+  assert.equal(monitor.observe(105, 100, 2499), false);
+  assert.equal(monitor.observe(105, 105, 2600), false);
+  assert.equal(monitor.observe(110, 106, 3000), false);
+  assert.equal(monitor.observe(110, 106, 5500), true);
+  assert.equal(monitor.observe(111, 106, 7000), false);
+  assert.equal(monitor.observe(111, 106, 35000), false);
+  assert.equal(monitor.observe(111, 106, 37500), true);
+  monitor.reset();
+  assert.equal(monitor.observe(111, 111, 38000), false);
+});
+
+test('Coinbase last_match establishes baseline without double-counting replayed fills', () => {
+  const trades = [], candles = [];
+  const stream = new CoinbaseStream('BTCUSD', '5m', {
+    onTrade: (trade) => trades.push(trade),
+    onCandle: (candle) => candles.push(candle)
+  });
+  const initial = { time: Date.UTC(2026, 9, 22, 7, 0),
+    open: 100, high: 101, low: 99, close: 101, volume: 2 };
+  stream.seedHistory([initial]);
+  stream.message(JSON.stringify({
+    type: 'last_match', product_id: 'BTC-USD', trade_id: 320,
+    price: '101', size: '1', side: 'sell', time: '2026-10-22T07:01:00Z'
+  }));
+  assert.equal(stream.builder.lastTradeId, 320);
+  assert.equal(candles.length, 0);
+  stream.message(JSON.stringify({
+    type: 'match', product_id: 'BTC-USD', trade_id: 321,
+    price: '102', size: '0.5', side: 'sell', time: '2026-10-22T07:02:00Z'
+  }));
+  assert.equal(trades.length, 1);
+  assert.equal(candles.length, 1);
+  assert.equal(candles[0].close, 102);
+  assert.equal(candles[0].volume, 2.5);
+  stream.close();
 });

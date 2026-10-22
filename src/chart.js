@@ -82,6 +82,7 @@ export class CandleChart {
     this.drawingAnchor = null;
     this.tool = 'pan';
     this.pointer = null;
+    this.externalCrossTime = null;
     this.drag = null;
     this.frame = null;
     this.raf = null;
@@ -259,6 +260,11 @@ export class CandleChart {
   resetView() {
     this.offsetBars = 0;
     this.barWidth = 8;
+    this.requestDraw();
+  }
+
+  setSyncedTime(time) {
+    this.externalCrossTime = Number.isFinite(time) ? time : null;
     this.requestDraw();
   }
 
@@ -533,6 +539,19 @@ export class CandleChart {
       ctx.fillText(formatPrice(last.close), right + 5, lastY);
     }
 
+    if (Number.isFinite(this.externalCrossTime) && !this.pointer) {
+      const guideX = coordinates.x(this.timeToIndex(this.externalCrossTime));
+      if (guideX >= left && guideX <= right) {
+        ctx.save();
+        ctx.strokeStyle = COLORS.cross;
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath();
+        ctx.moveTo(guideX, top);
+        ctx.lineTo(guideX, volumeBottom);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
     if (this.pointer && this.pointer.x >= left && this.pointer.x <= right) {
       const { x, y } = this.pointer;
       ctx.strokeStyle = COLORS.cross;

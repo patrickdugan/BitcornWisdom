@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" data-theme="noir">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090f19">
+<title>BitcornWisdom · Multi-chart desk</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./grid.css">
+<script type="module" src="./src/grid.js"></script>
+</head>
+<body class="grid-body">
+<div class="grid-app">
+<header class="grid-top">
+  <a class="grid-brand" href="./index.html"><span class="grid-mark">₿</span><span>BITCORN<span class="grid-gold">WISDOM</span><small>CHART GRID / OPEN MARKET DESK</small></span></a>
+  <div class="grid-controls">
+    <label for="grid-mode">Layout</label>
+    <select id="grid-mode"><option value="1">Single</option><option value="2" selected>2 charts</option><option value="4">4 charts</option></select>
+    <label class="grid-check"><input id="grid-sync-crosshair" type="checkbox" checked> Sync crosshair</label>
+    <label class="grid-check"><input id="grid-sync-range" type="checkbox"> Sync zoom/pan</label>
+    <label class="grid-check"><input id="grid-demo" type="checkbox"> Offline demo</label>
+    <select id="grid-theme" aria-label="Chart theme"><option value="noir">Noir</option><option value="synth">Afterhours</option><option value="verdigris">Verdigris</option></select>
+  </div>
+  <a class="grid-exit" href="./index.html">← Classic desk</a>
+</header>
+<div class="grid-strap"><span>01 / PRICE DISCOVERY</span><span>INDEPENDENT VENUES · SYNCHRONIZED INSPECTION</span><span id="grid-status" role="status">Initializing…</span></div>
+<main class="grid-canvas" id="chart-grid" data-count="2" aria-label="Multiple independent candlestick charts"></main>
+<footer class="grid-bottom"><span>BITCORNWISDOM / 0.8</span><span>One active feed per visible chart · local saved layout</span><span>Wheel zoom · Drag pan · Crosshair sync optional</span></footer>
+</div>
+</body></html>

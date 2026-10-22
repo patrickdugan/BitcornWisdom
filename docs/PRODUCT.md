@@ -2,7 +2,7 @@
 
 The goal is a fast, understandable, self-hostable crypto charting workspace with independently rendered market data. BitcornWisdom currently uses Canvas2D, native JavaScript, and direct public exchange feeds.
 
-## What v0.7 supports today
+## What v0.8 supports today
 
 The three-pane desktop shows local favorite-market shortcuts, an interactive chart, and live order-book/liquidity tools. The command deck provides keyboard market search, theme controls, indicator toggles, panel navigation and chart export. Three dark color themes change the browser UI and the Canvas palette.
 
@@ -10,9 +10,11 @@ Indicators currently include EMA20, SMA50, Bollinger Bands 20 / 2σ, and a separ
 
 Binance Spot/Futures, Kraken Spot and Coinbase Exchange feed one common OHLCV chart model. Order-book integrity varies by venue. The heatmap can replay bounded price-binned observations captured earlier on the same browser.
 
+The separate multi-chart desk now supports one, two or four independent public-market chart cells with locally saved per-cell venue, symbol and timeframe, optional timestamp crosshair guides, and bar-offset zoom/pan synchronization. It deliberately omits L2 depth from grid cells to avoid expensive multi-book subscriptions.
+
 ## What remains missing for broader TradingView parity
 
-This is a working crypto-first alternative. A general-purpose stocks/forex workspace, multi-chart tabs and grid layouts, an alert infrastructure, a complete TradingView-style drawing library, and a Pine-compatible scripting engine are not currently implemented.
+This is a working crypto-first alternative. A general-purpose stocks/forex workspace, resizable chart tabs and grid presets beyond four cells, alert infrastructure, a complete TradingView-style drawing library, and a Pine-compatible scripting engine are not currently implemented.
 
 Inactive watchlist entries are market shortcuts. The application only subscribes to the active instrument.
 

@@ -146,9 +146,10 @@ export class KrakenBook {
 }
 
 export class KrakenStream {
-  constructor(symbol, interval, callbacks = {}, factory) {
+  constructor(symbol, interval, callbacks = {}, factory, { chartOnly = false } = {}) {
     checkKraken(symbol, interval);
     this.callbacks = callbacks;
+    this.chartOnly = chartOnly;
     this.symbol = krakenSymbols(symbol).wire;
     this.interval = KRAKEN_INTERVALS[interval];
     this.book = new KrakenBook(25);
@@ -163,11 +164,13 @@ export class KrakenStream {
       onOpen: (socket) => {
         this.book.reset();
         callbacks.onBookStatus?.('syncing', 'waiting for Kraken snapshot');
-        for (const params of [
+        const channels = this.chartOnly ?
+          [{ channel: 'ohlc', symbol: [this.symbol], interval: this.interval, snapshot: true }] : [
           { channel: 'ohlc', symbol: [this.symbol], interval: this.interval, snapshot: true },
           { channel: 'trade', symbol: [this.symbol], snapshot: false },
           { channel: 'book', symbol: [this.symbol], depth: 25, snapshot: true }
-        ]) {
+        ];
+        for (const params of channels) {
           socket.send(JSON.stringify({ method: 'subscribe', params }));
         }
       },

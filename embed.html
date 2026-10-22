@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" data-theme="noir">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090f19">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>BitcornWisdom · Embedded market chart</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./embed.css">
+  <script type="module" src="./src/embed.js"></script>
+</head>
+<body>
+<div class="embed-app">
+  <header class="embed-top">
+    <div class="embed-brand"><span class="embed-mark">₿</span><span class="embed-brand-name">BITCORN<span>WISDOM</span></span></div>
+    <label class="embed-label" for="embed-instrument">Market</label>
+    <select id="embed-instrument" aria-label="Market instrument">
+      <option value="BTC-USD-SPOT">BTC/USD Spot</option>
+      <option value="ETH-USD-SPOT">ETH/USD Spot</option>
+      <option value="BTC-USDT-SPOT">BTC/USDT Spot</option>
+      <option value="ETH-USDT-SPOT">ETH/USDT Spot</option>
+      <option value="BTC-USDT-PERP">BTC/USDT Perpetual</option>
+    </select>
+    <label class="embed-label" for="embed-interval">Timeframe</label>
+    <select id="embed-interval" aria-label="Chart timeframe"></select>
+    <div class="embed-spacer"></div>
+    <span id="embed-connection" class="embed-connection" data-state="connecting" role="status">CONNECTING</span>
+  </header>
+  <main class="embed-chart-area">
+    <canvas id="embed-chart" tabindex="0" aria-label="Interactive BitcornWisdom candlestick chart. Wheel zoom, drag pan."></canvas>
+    <div id="embed-error" class="embed-error" role="alert" hidden></div>
+  </main>
+  <footer class="embed-bottom">
+    <div class="embed-source">
+      <span id="embed-source-dot" class="embed-source-dot"></span>
+      <strong id="embed-source">SELECTING FEED</strong>
+      <span id="embed-reason">Verified venue identity · UTC</span>
+    </div>
+    <span id="embed-price" class="embed-price" aria-label="Latest exchange price">—</span>
+    <span id="embed-age" class="embed-age">WAITING</span>
+    <a href="./index.html" target="_blank" rel="noopener noreferrer" class="embed-open" aria-label="Open full BitcornWisdom trading desk">Full desk ↗</a>
+  </footer>
+</div>
+</body>
+</html>

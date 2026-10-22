@@ -1,6 +1,6 @@
 {
   "name": "bitcornwisdom",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "type": "module",
   "description": "Open-source, keyboard-first crypto charting workspace with custom Canvas charts",
@@ -11,14 +11,16 @@
     "start": "node server.mjs",
     "dev": "node server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check test/live-browser.mjs && node --check src/main.js && node --check src/chart.js && node --check src/grid-model.js && node --check src/grid-time.js && node --check src/market-motion.js && node --check src/grid.js && node --check src/drawings.js && node --check src/workspace.js && node --check src/workspace-ui.js && node --check src/binance.js && node --check src/core.js && node --check src/indicators.js && node --check src/heatmap.js && node --check src/liquidity-archive.js && node --check src/demo.js && node --check src/realtime.js && node --check src/orderbook.js && node --check src/kraken.js && node --check src/coinbase.js && npm test",
+    "check": "node --check server.mjs && node --check test/live-browser.mjs && node --check test/embed-live.mjs && node --check src/main.js && node --check src/chart.js && node --check src/grid-model.js && node --check src/grid-time.js && node --check src/market-motion.js && node --check src/feed-policy.js && node --check src/feed-router.js && node --check src/feed-adapters.js && node --check src/embed.js && node --check src/embed-sdk.js && node --check src/embed-lab.js && node --check src/grid.js && node --check src/drawings.js && node --check src/workspace.js && node --check src/workspace-ui.js && node --check src/binance.js && node --check src/core.js && node --check src/indicators.js && node --check src/heatmap.js && node --check src/liquidity-archive.js && node --check src/demo.js && node --check src/realtime.js && node --check src/orderbook.js && node --check src/kraken.js && node --check src/coinbase.js && npm test",
     "smoke": "node test/browser-smoke.mjs",
     "probe:live": "node test/live-probe.mjs",
     "browser:live": "node test/live-browser.mjs",
     "smoke:archive": "node test/liquidity-browser.mjs",
     "smoke:grid": "node test/grid-smoke.mjs",
     "smoke:workspace": "node test/grid-interaction.mjs",
-    "smoke:motion": "node test/market-motion-browser.mjs"
+    "smoke:motion": "node test/market-motion-browser.mjs",
+    "smoke:embed": "node test/embed-browser.mjs",
+    "browser:embed-live": "node test/embed-live.mjs"
   },
   "dependencies": {},
   "devDependencies": {}

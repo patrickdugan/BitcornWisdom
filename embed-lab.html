@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BitcornWisdom Embed SDK · Integration lab</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<style>
+:root{color-scheme:dark;font-family:ui-monospace,Consolas,monospace;background:#0b121c;color:#e7eff7}
+*{box-sizing:border-box}body{margin:0;padding:24px;max-width:1450px;margin-inline:auto}
+a{color:#eabf82}.headline{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+h1{font-size:clamp(19px,3vw,30px);letter-spacing:-.7px;margin:9px 0 7px}
+p{font-size:12px;color:#8eabbc;line-height:1.6;max-width:940px}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0}
+button{background:#1d2c3a;color:#e8eff7;border:1px solid #345165;border-radius:5px;font:12px ui-monospace,monospace;padding:9px 11px;cursor:pointer}
+button:hover,button:focus-visible{border-color:#eabf82}
+.lab-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.lab-card{min-width:0;border:1px solid #304050;border-radius:10px;overflow:hidden;background:#111b29}
+.lab-label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;padding:12px 14px;background:#152334}
+.lab-label span{color:#91b1c4}.lab-slot{min-height:420px}
+.notice{margin-top:16px;font-size:11px;color:#9bafbe}
+#lab-status{font-weight:700;color:#9ce4bc}
+pre{white-space:pre-wrap;word-break:break-word;padding:15px;background:#13202e;border:1px solid #304255;border-radius:6px;font:11px ui-monospace,monospace}
+@media(max-width:820px){body{padding:10px}.lab-row{grid-template-columns:minmax(0,1fr)}.lab-slot{min-height:350px}}
+</style>
+<script type="module" src="./src/embed-lab.js"></script>
+</head>
+<body>
+<div class="headline"><span style="font-size:31px;color:#efbb71">₿</span><div>
+<h1>BitcornWisdom / Embed SDK</h1>
+<p>Two independent charts running inside iframes, controlled by a host application.
+Local demo mode uses explicitly synthetic candles. Remove <code>demo=1</code> for real public exchange market feeds.</p>
+</div></div>
+<div class="toolbar">
+<button id="lab-switch" type="button">Switch left to ETH/USD</button>
+<button id="lab-timeframe" type="button">Set both charts to 5m</button>
+<button id="lab-theme" type="button">Switch theme</button>
+<button id="lab-live" type="button">Toggle demo/live</button>
+<a href="./index.html">Full market desk ↗</a>
+</div>
+<div class="lab-row">
+<section class="lab-card"><div class="lab-label">01 / PRIMARY CHART <span id="lab-a-source">Connecting…</span></div><div id="lab-a" class="lab-slot"></div></section>
+<section class="lab-card"><div class="lab-label">02 / SECONDARY CHART <span id="lab-b-source">Connecting…</span></div><div id="lab-b" class="lab-slot"></div></section>
+</div>
+<div class="notice">SDK STATUS: <span id="lab-status">Initializing host widgets…</span></div>
+<p>Every chart reports its active venue and reasons for failover. BTC/USD spot may switch between Kraken and Coinbase; instruments and quote currencies remain distinct. The client holds no trading keys and makes read-only data connections.</p>
+<pre>import { mountBitcornChart } from './src/embed-sdk.js';
+const chart = mountBitcornChart('#my-chart', {
+  instrument: 'BTC-USD-SPOT', interval: '1m', preferred: 'kraken'
+});
+chart.on('source', ({ source }) => console.log('Now using', source));
+await chart.ready;
+chart.setMarket('ETH-USD-SPOT', '5m');</pre>
+</body>
+</html>

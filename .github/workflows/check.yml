@@ -18,6 +18,8 @@ jobs:
         timeout-minutes: 2
       - run: npm run smoke:motion
         timeout-minutes: 2
+      - run: npm run smoke:embed
+        timeout-minutes: 2
       - run: npm run smoke:archive
         timeout-minutes: 2
       - run: npm run probe:live
@@ -28,6 +30,10 @@ jobs:
         if: github.event_name == 'push'
         continue-on-error: true
         timeout-minutes: 1
+      - run: npm run browser:embed-live
+        if: github.event_name == 'push'
+        continue-on-error: true
+        timeout-minutes: 2
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -49,6 +55,8 @@ jobs:
             kraken-live-preview.png
             binance-spot-live-preview.png
             coinbase-live-preview.png
+            bitcorn-embed-live.png
+            embed-live-report.json
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
@@ -69,4 +77,5 @@ jobs:
             bitcorn-grid-4.png
             bitcorn-grid-workspace.png
             bitcorn-market-motion.png
+            bitcorn-embed-lab.png
           if-no-files-found: ignore

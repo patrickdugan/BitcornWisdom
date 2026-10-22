@@ -18,7 +18,7 @@ Use trusted interfaces or a correctly configured HTTPS reverse proxy when exposi
 
 The repository includes [the publishing workflow](../.github/workflows/pages.yml).
 On every relevant push to `main` and on manual dispatch it stages only:
-`index.html`, `grid.html`, the two stylesheets, favicon, and `src/*.js`.
+`index.html`, `grid.html`, `embed.html`, `embed-lab.html`, their stylesheets, favicon, and `src/*.js`.
 The workflow uses `actions/upload-pages-artifact` and `actions/deploy-pages`
 to publish HTTPS static assets. The local Node server is not deployed.
 
@@ -31,6 +31,8 @@ When deployment succeeds, the expected endpoints are:
 
 - Classic desk, live Kraken 1m: `https://patrickdugan.github.io/BitcornWisdom/index.html?market=kraken&symbol=BTCUSD&interval=1m&demo=0`
 - Multi-chart workstation: `https://patrickdugan.github.io/BitcornWisdom/grid.html?mode=4&demo=0`
+- Embedded chart: `https://patrickdugan.github.io/BitcornWisdom/embed.html?instrument=BTC-USD-SPOT&interval=1m`
+- Embed SDK lab: `https://patrickdugan.github.io/BitcornWisdom/embed-lab.html?demo=1`
 - Offline fallback: `https://patrickdugan.github.io/BitcornWisdom/index.html?demo=1`
 
 GitHub Pages publishes static files and has **no exchange proxy or backend
@@ -69,3 +71,13 @@ PNG chart export happens locally in the browser. No screenshot data is uploaded.
 ## Release checks
 
 Run npm run check, npm run smoke and npm run smoke:archive. Review the resulting Chrome screenshot artifact and check desktop/mobile breakpoints. Live probes are optional diagnostics.
+
+## Embedding other websites and application dashboards
+
+The independently styled `embed.html` is framed intentionally; the full
+trading desk keeps its anti-framing CSP. The embed uses its own origin, makes
+read-only public data requests, and authenticates its parent messages
+by the iframe identity and exact parent origin. Other pages retain
+their strict source allowlists. Static publishing hosts may need CSP and
+`frame-ancestors` headers configured appropriately for iframe consumers.
+See [the Embed SDK specification](EMBED.md).

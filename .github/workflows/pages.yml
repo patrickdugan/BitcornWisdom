@@ -7,8 +7,11 @@ on:
       - .github/workflows/pages.yml
       - index.html
       - grid.html
+      - embed.html
+      - embed-lab.html
       - styles.css
       - grid.css
+      - embed.css
       - favicon.svg
       - src/**
   workflow_dispatch:
@@ -36,11 +39,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site/src
-          cp index.html grid.html styles.css grid.css favicon.svg _site/
+          cp index.html grid.html embed.html embed-lab.html styles.css grid.css embed.css favicon.svg _site/
           cp src/*.js _site/src/
           touch _site/.nojekyll
           test -f _site/index.html
           test -f _site/grid.html
+          test -f _site/embed.html
+          test -f _site/embed-lab.html
+          test -f _site/src/embed.js
+          test -f _site/src/embed-sdk.js
+          test -f _site/src/feed-router.js
           test -f _site/src/main.js
           test -f _site/src/market-motion.js
           test -f _site/src/grid.js
@@ -61,7 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$LIVE_SITE"
-          for route in index.html grid.html src/main.js src/market-motion.js src/grid.js; do
+          for route in index.html grid.html embed.html embed-lab.html embed.css src/embed.js src/embed-sdk.js src/feed-router.js src/main.js src/market-motion.js src/grid.js; do
             curl --fail --silent --show-error --location --retry 12 --retry-delay 5 --retry-all-errors "${LIVE_SITE%/}/$route" -o /dev/null
           done
       - uses: actions/setup-node@v4
@@ -73,6 +81,12 @@ jobs:
         run: npm run browser:live
         continue-on-error: true
         timeout-minutes: 3
+      - name: Exercise embedded live candle feed from hosted Chrome
+        env:
+          BITCORN_EMBED_LIVE_URL: "${{ steps.deploy.outputs.page_url }}embed.html?instrument=BTC-USD-SPOT&interval=1m&preferred=kraken"
+        run: npm run browser:embed-live
+        continue-on-error: true
+        timeout-minutes: 2
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -82,4 +96,6 @@ jobs:
             kraken-live-preview.png
             coinbase-live-preview.png
             binance-spot-live-preview.png
+            bitcorn-embed-live.png
+            embed-live-report.json
           if-no-files-found: ignore

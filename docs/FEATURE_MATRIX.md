@@ -1,4 +1,4 @@
-# v0.10 feature matrix
+# v0.11 feature matrix
 
 | Feature | Implementation | Follow-up |
 | --- | --- | --- |
@@ -6,6 +6,9 @@
 | Themes | Noir, Afterhours, Verdigris with matching Canvas palettes | Theme export/import |
 | Market navigation | Command deck, local favorites, discover shortcuts | Exchange-wide symbol discovery |
 | Workspace panels | Collapsible watchlist and order-book; responsive drawer | Resizable custom layouts |
+| Embedded chart / SDK | Standalone iframe, zero-dependency JavaScript controller, Chrome-tested two-chart lab | Broader integration examples |
+| Feed redundancy | BTC/USD and ETH/USD spot can fail over Kraken ↔ Coinbase with visible provenance; strict quote/product isolation | Wider equivalent instruments and long soak |
+| Federated relays | Opt-in HTTPS CORS OHLCV/WS protocol with bounded validation | Signed provenance and independently audited relays |
 | Multi-chart grid | Separate 1/2/4 chart desk, per-cell venue/symbol/interval, optional crosshair and approximate bar-offset range sync | Continuous time-range sync, shared drawing toolbar |
 | Chart export | Client-side PNG snapshot | Annotation layers and sharing |
 | Bollinger 20/2σ | Price overlay plus basis | Configurable parameters |

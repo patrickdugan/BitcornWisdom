@@ -216,10 +216,11 @@ export class CoinbaseTradeGapMonitor {
 }
 
 export class CoinbaseStream {
-  constructor(symbol, interval, callbacks = {}, factory) {
+  constructor(symbol, interval, callbacks = {}, factory, { chartOnly = false } = {}) {
     checkCoinbase(symbol, interval);
     this.product = coinbaseProduct(symbol);
     this.callbacks = callbacks;
+    this.chartOnly = chartOnly;
     this.book = new CoinbaseBook();
     this.builder = new CoinbaseCandleBuilder(interval);
     this.tradeGap = new CoinbaseTradeGapMonitor();
@@ -242,7 +243,7 @@ export class CoinbaseStream {
         socket.send(JSON.stringify({
           type: 'subscribe',
           product_ids: [this.product],
-          channels: ['level2_batch','matches','heartbeat']
+          channels: this.chartOnly ? ['matches','heartbeat'] : ['level2_batch','matches','heartbeat']
         }));
       },
       onMessage: (text) => this.message(text)

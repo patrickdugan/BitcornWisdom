@@ -15,6 +15,8 @@ const grid = byId('chart-grid');
 let layout = loadGridLayout(localStorage);
 const initial = new URL(location.href);
 if (initial.searchParams.has('demo')) layout.demo = initial.searchParams.get('demo') === '1';
+const requestedMode = Number(initial.searchParams.get('mode'));
+if (initial.searchParams.has('mode') && GRID_MODES.includes(requestedMode)) layout.mode = requestedMode;
 let theme = normalTheme(localStorage.getItem('bitcornwisdom:grid:theme') ||
   JSON.parse(localStorage.getItem('bitcornwisdom:settings:v1') || '{}')?.theme);
 document.documentElement.dataset.theme = theme;

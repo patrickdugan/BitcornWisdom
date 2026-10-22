@@ -204,6 +204,7 @@ function persist() {
 }
 
 function updateButtons() {
+  document.documentElement.dataset.motion = settings.motionEnabled ? 'on' : 'off';
   for (const [id, active] of [
     ['ema-toggle', settings.showEMA],
     ['sma-toggle', settings.showSMA],
@@ -345,6 +346,8 @@ function makeTradeRow(row) {
   const element = document.createElement('div');
   element.className = 'trade-row ' + (row.side === 'sell' ? 'sell' : 'buy') + ' trade-row--new';
   element.dataset.tradeSeq = String(row.uiSeq);
+  element.addEventListener('animationend', () =>
+    element.classList.remove('trade-row--new'), { once: true });
   element.append(document.createElement('span'), document.createElement('span'),
     document.createElement('span'));
   return element;

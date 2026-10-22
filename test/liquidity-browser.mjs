@@ -276,6 +276,27 @@ try {
   assert.equal(retention.afterCap, 8);
   assert.equal(retention.afterErase, 0);
 
+  const marketJump = await evaluate("(() => {" +
+    " document.dispatchEvent(new KeyboardEvent('keydown', {key:'k', ctrlKey:true, bubbles:true}));" +
+    " if (!document.querySelector('#command-dialog').open) throw Error('Command shortcut failed');" +
+    " const input=document.querySelector('#command-search'); input.value='ETHUSDT';" +
+    " input.dispatchEvent(new Event('input',{bubbles:true}));" +
+    " const row=[...document.querySelectorAll('.palette-result')].find(e =>" +
+    " e.querySelector('.palette-result-title')?.textContent === 'ETH / USDT' &&" +
+    " e.querySelector('.palette-result-detail')?.textContent.includes('Binance'));" +
+    " if (!row) throw Error('ETH market command missing'); row.click();" +
+    " const opened=document.querySelector('#symbol').value;" +
+    " document.querySelector('#watchlist-starred').click();" +
+    " const back=[...document.querySelectorAll('.watch-item-open')].find(e =>" +
+    " e.getAttribute('aria-label')?.includes('BTC / USDT'));" +
+    " if (!back) throw Error('Pinned BTC shortcut missing'); back.click();" +
+    " return {opened, returned:document.querySelector('#symbol').value, dialogClosed: !document.querySelector('#command-dialog').open};" +
+    "})()");
+  assert.equal(marketJump.opened, 'ETHUSDT');
+  assert.equal(marketJump.returned, 'BTCUSDT');
+  assert.equal(marketJump.dialogClosed, true);
+  console.log('Command market jump: PASS ' + JSON.stringify(marketJump));
+
   console.log('Liquidity IndexedDB smoke: PASS ' + JSON.stringify({
     initial: initial.count, restored: restored.count,
     replay: replay.time, isolated: other.count,

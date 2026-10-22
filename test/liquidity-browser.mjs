@@ -101,6 +101,34 @@ async function seedBrowserRows() {
   return 104;
 }
 
+
+async function browserRetention() {
+  const { LiquidityArchive } = await import('/src/liquidity-archive.js');
+  const archive = new LiquidityArchive({
+    name: 'bitcorn-retention-test-v1', maxTotal: 8, maxLoaded: 50, retentionMs: 5_000
+  });
+  const series = 'demo:spot:BTCUSDT';
+  const now = Date.now();
+  const sample = (at) => ({
+    version: 1, series, at, exchangeAt: null,
+    source: 'demo-retention-test', price: 100, levels: [[100, 1]]
+  });
+  for (let i = 0; i < 15; i++) await archive.save(sample(now - (15 - i) * 1000));
+  const removedOld = await archive.prune(now);
+  const eligible = await archive.load(series, { now, limit: 50 });
+  if (eligible.length > 5 || removedOld < 10) throw new Error('Archive age cleanup failed');
+
+  for (let i = 0; i < 16; i++) await archive.save(sample(now - i * 101));
+  const removedExcess = await archive.prune(now);
+  const limited = await archive.load(series, { now, limit: 50 });
+  if (limited.length > 8 || removedExcess < 8) throw new Error('Archive global cap failed');
+  await archive.clearSeries(series);
+  const afterDelete = await archive.load(series, { now, limit: 50 });
+  if (afterDelete.length) throw new Error('Archive erase did not clear records');
+  archive.close();
+  return { removedOld, removedExcess, afterCap: limited.length, afterErase: afterDelete.length };
+}
+
 try {
   await until(async () => (await fetch('http://127.0.0.1:' + port)).ok, 8000);
   chrome = spawn(process.env.CHROME_BIN || 'google-chrome', [
@@ -183,11 +211,14 @@ try {
     return state.storage.includes('erased') ? state : null;
   });
   assert.ok(erased.count < returned.count, 'Erase must clear the loaded timeline');
+  const retention = await evaluate('(' + browserRetention.toString() + ')()', true);
+  assert.equal(retention.afterCap, 8);
+  assert.equal(retention.afterErase, 0);
 
   console.log('Liquidity IndexedDB smoke: PASS ' + JSON.stringify({
     initial: initial.count, restored: restored.count,
     replay: replay.time, isolated: other.count,
-    afterErase: erased.count, screenshot: 'bitcorn-liquidity-replay.png'
+    afterErase: erased.count, retention, screenshot: 'bitcorn-liquidity-replay.png'
   }));
 } finally {
   if (socket) socket.close();

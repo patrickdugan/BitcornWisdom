@@ -16,7 +16,8 @@
     "probe:live": "node test/live-probe.mjs",
     "browser:live": "node test/live-browser.mjs",
     "smoke:archive": "node test/liquidity-browser.mjs",
-    "smoke:grid": "node test/grid-smoke.mjs"
+    "smoke:grid": "node test/grid-smoke.mjs",
+    "smoke:workspace": "node test/grid-interaction.mjs"
   },
   "dependencies": {},
   "devDependencies": {}

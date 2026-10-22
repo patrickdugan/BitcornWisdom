@@ -408,18 +408,13 @@ export class ChartGrid {
     this.settings.gridPanes = normalizeGridPanes(settings.gridPanes);
     this.settings.gridLinkTime = settings.gridLinkTime === true;
     this.settings.gridLinkCursor = settings.gridLinkCursor !== false;
+    this.lastDemo = settings.demo;
     document.getElementById('grid-layout').addEventListener('change', (event) =>
       this.setLayout(event.target.value));
-    document.getElementById('grid-link-time').addEventListener('change', (event) => {
-      this.settings.gridLinkTime = event.target.checked;
-      this.persist();
-      if (this.settings.gridLinkTime) this.syncFromPrimary();
-    });
-    document.getElementById('grid-link-cursor').addEventListener('change', (event) => {
-      this.settings.gridLinkCursor = event.target.checked;
-      this.persist();
-      if (!event.target.checked) this.clearLinkedCursors();
-    });
+    document.getElementById('grid-link-time').addEventListener('change', (event) =>
+      this.setLinkTime(event.target.checked));
+    document.getElementById('grid-link-cursor').addEventListener('change', (event) =>
+      this.setLinkCursor(event.target.checked));
     this.setLayout(this.settings.chartLayout);
   }
 
@@ -428,6 +423,26 @@ export class ChartGrid {
   savePreference(index, pane) {
     this.settings.gridPanes[index] = normalizePane(pane, index);
     this.persist();
+  }
+
+  setLinkTime(enabled) {
+    this.settings.gridLinkTime = Boolean(enabled);
+    document.getElementById('grid-link-time').checked = this.settings.gridLinkTime;
+    this.persist();
+    if (this.settings.gridLinkTime) this.syncFromPrimary();
+  }
+
+  setLinkCursor(enabled) {
+    this.settings.gridLinkCursor = Boolean(enabled);
+    document.getElementById('grid-link-cursor').checked = this.settings.gridLinkCursor;
+    this.persist();
+    if (!this.settings.gridLinkCursor) this.clearLinkedCursors();
+  }
+
+  refreshMode() {
+    if (this.lastDemo === this.settings.demo) return;
+    this.lastDemo = this.settings.demo;
+    this.reloadSecondary();
   }
 
   setLayout(next) {

@@ -124,6 +124,7 @@ function paneHTML(number) {
     '<option value="' + value + '">' + value + '</option>').join('');
   return '<div class="grid-pane-top">' +
     '<span class="grid-pane-index">' + String(number).padStart(2, '0') + ' / CHART</span>' +
+    '<span class="grid-pane-status" data-role="status">WAIT</span>' +
     '<form class="grid-pane-controls" data-role="form" autocomplete="off">' +
       '<select class="pane-market" data-role="market" aria-label="Chart ' + number + ' exchange">' + venueOptions + '</select>' +
       '<input class="pane-symbol" data-role="symbol" aria-label="Chart ' + number + ' symbol" maxlength="24" spellcheck="false">' +
@@ -134,7 +135,6 @@ function paneHTML(number) {
       '<button data-role="BB" type="button" title="Bollinger Bands" aria-pressed="false">BB</button>' +
       '<button data-role="RSI" type="button" title="RSI 14" aria-pressed="false">RSI</button>' +
       '<button data-role="LOG" type="button" title="Logarithmic price scale" aria-pressed="false">LOG</button>' +
-      '<span class="grid-pane-status" data-role="status">WAIT</span>' +
     '</form></div>' +
     '<div class="chart-grid-viewport" data-role="viewport">' +
     '<canvas data-role="canvas" tabindex="0" aria-label="Secondary chart ' + number + '"></canvas>' +

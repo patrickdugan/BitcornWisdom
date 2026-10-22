@@ -63,7 +63,7 @@ test('Binance historical endpoint applies oldest-exclusive millisecond cursor', 
   }, 900000);
   assert.match(observed, /endTime=899999/);
   assert.match(observed, /limit=1000/);
-  assert.throws(() => fetchCandles('spot', 'BTCUSDT','5m',undefined,1000,
+  await assert.rejects(fetchCandles('spot', 'BTCUSDT','5m',undefined,1000,
     async () => ({ ok:true, json:async()=>[] }), -1), RangeError);
 });
 

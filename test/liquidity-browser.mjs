@@ -60,7 +60,7 @@ async function evaluate(expression, awaitPromise = false) {
     expression, awaitPromise, returnByValue: true
   });
   if (result.exceptionDetails) throw new Error(
-    result.exceptionDetails.text || 'Browser evaluation failed');
+    result.exceptionDetails.exception?.description || result.exceptionDetails.text || 'Browser evaluation failed');
   return result.result?.value;
 }
 

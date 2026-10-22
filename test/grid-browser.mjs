@@ -103,6 +103,8 @@ function configurePane() {
   pane.querySelector('[data-role="form"]').dispatchEvent(
     new Event('submit',{bubbles:true,cancelable:true}));
   pane.querySelector('[data-role="BB"]').click();
+  pane.querySelector('[data-role="SMA"]').click();
+  pane.querySelector('[data-role="LOG"]').click();
   return {
     market:pane.querySelector('[data-role="canvas"]').dataset.market,
     symbol:pane.querySelector('[data-role="canvas"]').dataset.symbol,
@@ -180,10 +182,34 @@ try {
   });
   assert.equal(custom.panes[0].bb,'true');
   assert.equal(custom.panes[1].bb,'false');
+  assert.equal(await evaluate("document.querySelector('.secondary-pane[data-pane=\"2\"] [data-role=SMA]').getAttribute('aria-pressed')"),'true');
+  assert.equal(await evaluate("document.querySelector('.secondary-pane[data-pane=\"2\"] [data-role=LOG]').getAttribute('aria-pressed')"),'true');
   const linked=await evaluate('('+triggerLinks.toString()+')()');
   assert.ok(Number(linked.view)>0,'Time navigation did not link to secondary');
   assert.ok(Number(linked.cursor)>0,'Time crosshair did not link to secondary');
   assert.equal(linked.cleared,true);
+  const unlinked=await evaluate("(() => {" +
+    " const primary=document.querySelector('#candle-chart');" +
+    " const target=document.querySelector('.secondary-pane [data-role=canvas]');" +
+    " const time=document.querySelector('#grid-link-time');" +
+    " const cursor=document.querySelector('#grid-link-cursor');" +
+    " time.checked=false;time.dispatchEvent(new Event('change',{bubbles:true}));" +
+    " cursor.checked=false;cursor.dispatchEvent(new Event('change',{bubbles:true}));" +
+    " const prior=target.dataset.linkedView;" +
+    " primary.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));" +
+    " const rect=primary.getBoundingClientRect();" +
+    " primary.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerId:3," +
+    "clientX:rect.left+rect.width*.5,clientY:rect.top+95}));" +
+    " const result={unchanged:prior===target.dataset.linkedView," +
+    "cursorAbsent:!Object.hasOwn(target.dataset,'linkedTime')};" +
+    " time.checked=true;time.dispatchEvent(new Event('change',{bubbles:true}));" +
+    " cursor.checked=true;cursor.dispatchEvent(new Event('change',{bubbles:true}));" +
+    " primary.dispatchEvent(new PointerEvent('pointerleave',{bubbles:true,pointerId:3}));" +
+    " return result; })()");
+  assert.equal(unlinked.unchanged,true);
+  assert.equal(unlinked.cursorAbsent,true);
+  await evaluate("(() => {const theme=document.querySelector('#theme-select');" +
+    "theme.value='synth';theme.dispatchEvent(new Event('change',{bubbles:true}));return true;})()");
   await sleep(280);
 
   const screenshot=(await send('Page.captureScreenshot',{
@@ -208,9 +234,12 @@ try {
   assert.equal(persisted.panes[0].interval,'1h');
   assert.equal(persisted.panes[0].bb,'true');
   assert.equal(persisted.panes[1].market,'kraken');
+  assert.equal(await evaluate("document.documentElement.dataset.theme"),'synth');
+  assert.equal(await evaluate("document.querySelector('.secondary-pane[data-pane=\"2\"] [data-role=SMA]').getAttribute('aria-pressed')"),'true');
+  assert.equal(await evaluate("document.querySelector('.secondary-pane[data-pane=\"2\"] [data-role=LOG]').getAttribute('aria-pressed')"),'true');
   console.log('Chart grid browser: PASS '+JSON.stringify({
     initial:initial.chartCount,quad:four.chartCount,
-    custom:changed,linked,persisted:persisted.panes.map(x=>x.symbol),
+    custom:changed,linked,unlinked,persisted:persisted.panes.map(x=>x.symbol),
     screenshot:'bitcorn-multi-chart.png'
   }));
 } finally {

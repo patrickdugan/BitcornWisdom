@@ -131,6 +131,11 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
     el('watchlist-explore').setAttribute('aria-pressed', String(favoritesTab === 'explore'));
   }
 
+  function refresh() {
+    renderWatchlist();
+    el('theme-select').value = settings.theme;
+  }
+
   function updateLayout() {
     const compact = window.matchMedia('(max-width:1110px)').matches;
     workspace.classList.toggle('watchlist-collapsed', !settings.watchlistVisible);
@@ -350,10 +355,7 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
   renderWatchlist();
 
   return {
-    refresh() {
-      renderWatchlist();
-      el('theme-select').value = settings.theme;
-    },
+    refresh,
     setQuote(price) {
       const node = document.querySelector('.watch-item.active .watch-venue');
       if (node && Number.isFinite(price)) {

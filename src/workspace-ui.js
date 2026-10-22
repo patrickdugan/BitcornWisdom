@@ -88,11 +88,14 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
     for (const item of filtered) {
       const active = item.market === settings.market && item.symbol === settings.symbol;
       const pinned = isFavorite(settings.favorites, item);
+      const itemRow = document.createElement('div');
+      itemRow.className = 'watch-item' + (active ? ' active' : '');
+      itemRow.setAttribute('role','listitem');
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'watch-item' + (active ? ' active' : '');
-      button.setAttribute('role','listitem');
+      button.className = 'watch-item-open';
       button.setAttribute('aria-current', active ? 'true' : 'false');
+      button.setAttribute('aria-label', 'Open ' + symbolLabel(item.symbol) + ' on ' + MARKET_NAMES[item.market]);
       const text = document.createElement('span');
       text.className = 'watch-main';
       const name = document.createElement('span');
@@ -102,20 +105,17 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
       venue.className = 'watch-venue';
       venue.textContent = MARKET_NAMES[item.market];
       text.append(name, venue);
-      const star = document.createElement('span');
+      const star = document.createElement('button');
+      star.type = 'button';
       star.className = 'watch-star';
       star.textContent = pinned ? '★' : '☆';
-      star.setAttribute('aria-label', pinned ? 'Pinned' : 'Unpinned');
-      button.append(text, star);
+      star.setAttribute('aria-label', (pinned ? 'Remove ' : 'Pin ') + symbolLabel(item.symbol));
+      star.setAttribute('aria-pressed', String(pinned));
+      star.addEventListener('click', () => favoriteAction(item));
+      button.append(text);
       button.addEventListener('click', () => changeMarket(item));
-      // The separate star surface is keyboard accessible while preserving the
-      // market shortcut as a single focus target for arrow navigation.
-      button.addEventListener('contextmenu', (event) => {
-        event.preventDefault();
-        favoriteAction(item);
-      });
-      button.title = 'Open market · right-click to ' + (pinned ? 'unpin' : 'pin');
-      fragment.append(button);
+      itemRow.append(button, star);
+      fragment.append(itemRow);
     }
     holder.append(fragment);
     const activeStar = isFavorite(settings.favorites, currentMarket());

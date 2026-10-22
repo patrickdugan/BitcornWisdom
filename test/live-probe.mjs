@@ -70,8 +70,8 @@ const report = await Promise.all([
   stream('Binance spot trades', 'wss://data-stream.binance.vision/ws/btcusdt@trade', {
     match: (p) => p.e === 'trade' && Number(p.p) > 0
   }),
-  stream('Binance futures trades', 'wss://fstream.binance.com/market/ws/btcusdt@trade', {
-    match: (p) => p.e === 'trade' && Number(p.p) > 0
+  stream('Binance futures trades', 'wss://fstream.binance.com/market/ws/btcusdt@aggTrade', {
+    match: (p) => p.e === 'aggTrade' && Number(p.p) > 0
   }),
   stream('Binance futures sequenced depth', 'wss://fstream.binance.com/public/ws/btcusdt@depth@100ms', {
     match: (p) => p.e === 'depthUpdate' && Number.isSafeInteger(p.u)

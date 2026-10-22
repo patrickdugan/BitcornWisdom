@@ -13,6 +13,28 @@ Inspired by the feel of the original BitcoinWisdom charts. Built with a homegrow
 
 Once GitHub Pages is enabled, the expected URL for [Kraken BTC/USD 1m live](https://patrickdugan.github.io/BitcornWisdom/index.html?market=kraken&symbol=BTCUSD&interval=1m&demo=0) is hosted through the [Public live preview workflow](.github/workflows/pages.yml). See [Hosting](docs/HOSTING.md) for setup and validation.
 
+## Embed SDK and federated feeds (v0.11)
+
+The [standalone embedded chart](embed.html?demo=1) can be placed in other
+websites and apps with a plain iframe or controlled through the
+[zero-dependency JavaScript SDK](src/embed-sdk.js). The
+[two-chart integration lab](embed-lab.html?demo=1) demonstrates live SDK
+methods, responsive embeds and independent source events.
+
+```html
+<iframe src="https://patrickdugan.github.io/BitcornWisdom/embed.html?instrument=BTC-USD-SPOT&interval=1m"
+        style="width:100%;height:420px;border:0" title="BTC/USD live chart"></iframe>
+```
+
+BTC/USD and ETH/USD spot embeds have eligible Kraken and Coinbase public
+sources, with source-health monitoring, visible failover, and no cross-quote
+or spot/perpetual substitution. Opt-in self-hosted HTTPS relays can implement
+the simple OHLCV history and stream protocol. The embedded data router
+publishes one source at a time and labels provenance. Full L2 book and
+liquidity replay remain on the classic desk. [Embed and relay
+documentation](docs/EMBED.md) includes SDK/React snippets, relay examples,
+security boundaries and QA instructions.
+
 ## The open-market desk (v0.8)
 
 The classic workspace has a three-panel terminal layout with customizable themes and a local watchlist. The new [multi-chart desk](grid.html) opens one, two, or four independent market charts simultaneously, with optional crosshair and pan/zoom synchronization.
@@ -40,6 +62,7 @@ Open http://127.0.0.1:5173/ for public market feeds. Open http://127.0.0.1:5173/
     npm run smoke          # headless Chrome demo hydration
     npm run smoke:grid     # 1/2/4 chart offline grid hydration
     npm run smoke:motion   # actual Chrome depth-pixel, rendering, motion preference and book-row test
+    npm run smoke:embed    # two SDK iframes, postMessage guards and source identity
     npm run smoke:archive  # IndexedDB, replay, workspace UI and drawing interactions
     npm run probe:live     # optional public exchange reachability
     npm run browser:live   # optional live Chrome integration
@@ -106,7 +129,7 @@ The core remains browser-native JavaScript, with a small Node static server for 
 
 ## What we're building toward
 
-BitcornWisdom is a **crypto-first TradingView alternative in progress**. Current features cover chart navigation, basic technical analysis, editable drawing annotations and market microstructure. Planned work includes multi-chart layouts, configurable studies, portable workspace exports, alerts, additional venues, and optional open plugin interfaces.
+BitcornWisdom is a **crypto-first TradingView alternative in progress**. Current features cover chart navigation, basic technical analysis, editable drawing annotations and market microstructure. Planned work includes a wider selection of embeds, study plugins, alerts, more venues, and independent data relays.
 
 See [product direction](docs/PRODUCT.md), [feature matrix](docs/FEATURE_MATRIX.md) and [architecture](docs/ARCHITECTURE.md). For contributors, start with [CONTRIBUTING.md](CONTRIBUTING.md).
 

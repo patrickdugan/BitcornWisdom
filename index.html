@@ -73,14 +73,8 @@
       </section>
 
       <aside class="sidebar" aria-label="Market microstructure">
-        <div class="side-header"><h2>Order book</h2><span class="muted" id="book-pair">BTCUSDT</span></div>
-        <div class="depth-caption"><span>Price (quote)</span><span>Size (base)</span></div>
-        <div id="asks" class="book-side asks" aria-label="Best asks"></div>
-        <div class="spread"><span>Spread</span><strong id="spread">—</strong></div>
-        <div id="bids" class="book-side bids" aria-label="Best bids"></div>
-        <div id="book-status" class="depth-footer" role="status">Synchronizing book…</div>
         <div class="side-header secondary"><h2>Liquidity history</h2>
-          <span class="muted">LIVE · BINNED L2</span></div>
+          <span class="muted">RECORDED · BINNED L2</span></div>
         <div id="heatmap-frame" class="heatmap-frame">
           <canvas id="liquidity-heatmap" aria-label="Recorded order-book liquidity heatmap"></canvas>
         </div>
@@ -105,6 +99,12 @@
         <div id="liquidity-storage" class="liquidity-storage" role="status" aria-live="polite">
           Local archive · restoring…
         </div>
+        <div class="side-header"><h2>Order book</h2><span class="muted" id="book-pair">BTCUSDT</span></div>
+        <div class="depth-caption"><span>Price (quote)</span><span>Size (base)</span></div>
+        <div id="asks" class="book-side asks" aria-label="Best asks"></div>
+        <div class="spread"><span>Spread</span><strong id="spread">—</strong></div>
+        <div id="bids" class="book-side bids" aria-label="Best bids"></div>
+        <div id="book-status" class="depth-footer" role="status">Synchronizing book…</div>
         <div class="side-header secondary"><h2>Recent trades</h2><span class="muted">BTC/quote</span></div>
         <div class="depth-caption"><span>Price</span><span>Quantity</span><span>UTC</span></div>
         <div id="trades" class="trades" aria-label="Live public trades"></div>
@@ -112,7 +112,7 @@
     </main>
 
     <footer class="bottom-bar">
-      <span>BitcornWisdom <span class="dim">v0.3</span> · independent open-source project</span>
+      <span>BitcornWisdom <span class="dim">v0.5</span> · independent open-source project</span>
       <span><button id="demo-toggle" class="text-link">Use offline demo</button> · <a href="https://github.com/patrickdugan/BitcornWisdom" target="_blank" rel="noopener noreferrer">GitHub</a></span>
     </footer>
   </div>

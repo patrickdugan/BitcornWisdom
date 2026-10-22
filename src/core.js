@@ -81,9 +81,9 @@ export function normalizeDepth(snapshot) {
 }
 
 export function parseTrade(event) {
-  if (!event || event.e !== 'trade') throw new TypeError('Invalid trade');
+  if (!event || !['trade', 'aggTrade'].includes(event.e)) throw new TypeError('Invalid trade');
   return {
-    id: event.t,
+    id: event.e === 'aggTrade' ? event.a : event.t,
     time: number(event.T, 'trade timestamp'),
     price: number(event.p, 'trade price'),
     quantity: number(event.q, 'trade quantity'),

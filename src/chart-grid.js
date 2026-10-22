@@ -130,8 +130,10 @@ function paneHTML(number) {
       '<select class="pane-interval" data-role="interval" aria-label="Chart ' + number + ' timeframe">' + timeOptions + '</select>' +
       '<button class="pane-load" type="submit" title="Load this market">↗</button>' +
       '<button data-role="EMA" type="button" title="EMA 20" aria-pressed="false">EMA</button>' +
+      '<button data-role="SMA" type="button" title="SMA 50" aria-pressed="false">SMA</button>' +
       '<button data-role="BB" type="button" title="Bollinger Bands" aria-pressed="false">BB</button>' +
       '<button data-role="RSI" type="button" title="RSI 14" aria-pressed="false">RSI</button>' +
+      '<button data-role="LOG" type="button" title="Logarithmic price scale" aria-pressed="false">LOG</button>' +
       '<span class="grid-pane-status" data-role="status">WAIT</span>' +
     '</form></div>' +
     '<div class="chart-grid-viewport" data-role="viewport">' +
@@ -213,7 +215,7 @@ class SecondaryPane {
       this.setPreference(normalizePane({ ...this.pref, interval: this.ui.interval.value }, this.index), true);
     });
     for (const [key, property] of [
-      ['EMA', 'showEMA'], ['BB', 'showBB'], ['RSI', 'showRSI']
+      ['EMA', 'showEMA'], ['SMA', 'showSMA'], ['BB', 'showBB'], ['RSI', 'showRSI'], ['LOG', 'logarithmic']
     ]) {
       $(host, key).addEventListener('click', () => {
         this.pref = { ...this.pref, [property]: !this.pref[property] };
@@ -236,7 +238,7 @@ class SecondaryPane {
         (p.market === 'coinbase' && !Object.hasOwn(COINBASE_INTERVALS, option.value));
     }
     this.ui.interval.value = p.interval;
-    for (const [name, field] of [['EMA','showEMA'],['BB','showBB'],['RSI','showRSI']]) {
+    for (const [name, field] of [['EMA','showEMA'],['SMA','showSMA'],['BB','showBB'],['RSI','showRSI'],['LOG','logarithmic']]) {
       const button = $(this.host, name);
       button.classList.toggle('active', p[field]);
       button.setAttribute('aria-pressed', String(p[field]));

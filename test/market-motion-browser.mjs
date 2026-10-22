@@ -93,7 +93,7 @@ test('real Chrome renders moving candles and depth, keeps book rows, and reports
     assert.ok((await evalJS("document.querySelectorAll('#trades .trade-row').length"))>=2);
     const stats=await until(async()=>{
       const value=await evalJS("document.querySelector('#market-motion-stats').textContent");
-      const match=/DRAW p95 ([\\d.]+) ms · UPDATE→DRAW p95 ([\\d.]+) ms · ACTIVE FPS (\\d+)/.exec(value);
+      const match=/DRAW p95 ([0-9.]+) ms · UPDATE→DRAW p95 ([0-9.]+) ms · ACTIVE FPS ([0-9]+)/.exec(value);
       return match?{draw:Number(match[1]),latency:Number(match[2]),fps:Number(match[3])}:false;
     },10000);
     assert.ok(stats.draw>=0 && stats.draw<250,'canvas draw p95 too slow: '+stats.draw);

@@ -90,7 +90,12 @@ export class LiquidityHeatmap {
     const sample = makeLiquiditySample(book, price, this.series, at);
     if (!sample) return null;
     this.lastSample = at;
-    this.history = combineLiquiditySamples(this.history, [sample], this.maxHistory);
+    if (!this.history.length || sample.at > this.history.at(-1).at) {
+      this.history.push(sample);
+      if (this.history.length > this.maxHistory) this.history.shift();
+    } else {
+      this.history = combineLiquiditySamples(this.history, [sample], this.maxHistory);
+    }
     this.requestDraw();
     this.notify();
     return sample;

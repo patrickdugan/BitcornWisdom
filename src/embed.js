@@ -64,10 +64,12 @@ function setStatus(state, reason, source) {
   post('status', { state, reason, source: currentSource });
 }
 
-function setPrice(candle) {
-  lastCandleAt = Date.now();
+function setPrice(candle, live = false) {
+  // Historical REST responses establish the viewport, not a live observation.
+  // Only a new WebSocket candle should reset the live update age.
+  if (live) lastCandleAt = Date.now();
   el('embed-price').textContent = formatPrice(candle.close);
-  el('embed-age').textContent = 'LIVE TICK';
+  el('embed-age').textContent = live ? 'LIVE TICK' : 'HISTORY';
 }
 
 function updateIntervals(config) {
@@ -121,7 +123,7 @@ function startConfig(next) {
       if (!last) return;
       const row = nextDemoCandle(last, active.interval, tick++);
       chart.updateCandle(row);
-      setPrice(row);
+      setPrice(row, true);
       publishCandle(row);
     }, 1100);
     post('source', { source: synthetic, reason: 'demo' });
@@ -155,7 +157,7 @@ function startConfig(next) {
     onCandle: row => {
       if (epoch !== session) return;
       chart.updateCandle(row);
-      setPrice(row);
+      setPrice(row, true);
       publishCandle(row);
     },
     onError: error => {

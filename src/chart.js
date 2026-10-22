@@ -2,6 +2,10 @@ import { clamp, formatCompact, formatPrice, upsertCandle, INTERVAL_MS } from './
 import { ema, sma, rsi, bollingerBands } from './indicators.js';
 import { CHART_COLORS } from './workspace.js';
 import {
+  MOTION_DURATION_MS, PULSE_DURATION_MS, motionProgress, interpolateCandle,
+  prepareDepthProfile, sampleDepthProfile, interpolateDepthProfile, MarketRenderMetrics
+} from './market-motion.js';
+import {
   DRAWING_TOOLS, MAX_DRAWINGS, normalizeDrawings, makeDrawing,
   drawingShapes, pickDrawing, moveDrawing
 } from './drawings.js';
@@ -88,6 +92,16 @@ export class CandleChart {
     this.raf = null;
     this.onDrawingsChange = onDrawingsChange;
     this.onHover = onHover;
+    this.motionEnabled = true;
+    this.depthProfileEnabled = false; // Enabled by the classic market desk.
+    this.candleTween = null;
+    this.priceTween = null;
+    this.lastTrade = null;
+    this.depthPrepared = null;
+    this.depthTween = null;
+    this.depthUpdatedAt = 0;
+    this.marketMetrics = new MarketRenderMetrics();
+    this.onPaint = null;
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas.parentElement);
@@ -119,7 +133,10 @@ export class CandleChart {
     this.candles = candles.slice(-this.maxCandleBars);
     this.cachedIndicators = null;
     this.interval = interval;
+    this.candleTween = null;
     if (reset) {
+      this.lastTrade = null;
+      this.priceTween = null;
       this.offsetBars = 0;
       this.historyPending = false;
       this.historyExhausted = false;
@@ -130,11 +147,101 @@ export class CandleChart {
   }
 
   updateCandle(candle) {
+    const now = performance.now();
+    const oldLast = this.candles.at(-1);
+    const painted = this.displayedCandle(now);
+    const oldPrice = this.displayedPrice(now);
     const result = upsertCandle(this.candles, candle, this.maxCandleBars);
+    if (result !== 'ignored') {
+      if (this.canAnimate() && result === 'replaced' && oldLast?.time === candle.time)
+        this.candleTween = { from: painted || oldLast, to: candle, started: now };
+      else this.candleTween = null;
+      if (!this.lastTrade || Date.now() - this.lastTrade.receivedAt > 1500) {
+        if (this.canAnimate() && Number.isFinite(oldPrice) && oldPrice !== candle.close)
+          this.priceTween = { from: oldPrice, to: candle.close, started: now };
+        else this.priceTween = null;
+      }
+      this.marketMetrics.noteUpdate(now);
+    }
     this.cachedIndicators = null;
     this.requestDraw();
     return result;
   }
+
+  canAnimate() {
+    return Boolean(this.motionEnabled) &&
+      !(typeof document !== 'undefined' && document.hidden) &&
+      !(typeof window !== 'undefined' &&
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  displayedCandle(now = performance.now()) {
+    const live = this.candleTween;
+    if (!live || !this.canAnimate()) return this.candles.at(-1) || null;
+    return interpolateCandle(live.from, live.to, motionProgress(live.started, now));
+  }
+
+  displayedPrice(now = performance.now()) {
+    const live = this.priceTween;
+    if (!live || !this.canAnimate()) return this.currentMarketPrice();
+    const t = motionProgress(live.started, now);
+    return live.from + (live.to - live.from) * t;
+  }
+
+  currentMarketPrice() {
+    const last = this.candles.at(-1);
+    return this.lastTrade && Date.now() - this.lastTrade.receivedAt < 1500 ?
+      this.lastTrade.price : last?.close ?? null;
+  }
+
+  updateTrade(trade) {
+    if (!Number.isFinite(trade?.price) || trade.price <= 0 ||
+      !Number.isFinite(trade.time)) return;
+    if (this.lastTrade && trade.time < this.lastTrade.time) return;
+    const now = performance.now();
+    const prior = this.displayedPrice(now);
+    this.lastTrade = { price: trade.price, side: trade.side, time: trade.time,
+      receivedAt: Date.now(), started: now };
+    this.priceTween = this.canAnimate() && Number.isFinite(prior) ?
+      { from: prior, to: trade.price, started: now } : null;
+    this.marketMetrics.noteUpdate(now);
+    this.requestDraw();
+  }
+
+  setDepthBook(book) {
+    const prepared = prepareDepthProfile(book);
+    if (!prepared) return;
+    const now = performance.now();
+    this.depthTween = this.canAnimate() && this.depthPrepared ?
+      { from: this.depthPrepared, started: now } : null;
+    this.depthPrepared = prepared;
+    this.depthUpdatedAt = Date.now();
+    this.marketMetrics.noteUpdate(now);
+    this.requestDraw();
+  }
+
+  clearDepthBook() {
+    this.depthPrepared = null;
+    this.depthTween = null;
+    this.depthUpdatedAt = 0;
+    this.requestDraw();
+  }
+
+  profileActive() {
+    return this.depthProfileEnabled && this.width >= 700;
+  }
+
+  motionActive(now) {
+    if (!this.canAnimate()) return false;
+    return Boolean(
+      (this.candleTween && now - this.candleTween.started < MOTION_DURATION_MS) ||
+      (this.priceTween && now - this.priceTween.started < MOTION_DURATION_MS) ||
+      (this.depthTween && now - this.depthTween.started < MOTION_DURATION_MS) ||
+      (this.lastTrade && now - this.lastTrade.started < PULSE_DURATION_MS)
+    );
+  }
+
+  getMotionMetrics() { return this.marketMetrics.snapshot(); }
 
   /** Prepend older exchange bars without moving the current visible candles. */
   prependHistory(older) {
@@ -280,15 +387,20 @@ export class CandleChart {
 
   requestDraw() {
     if (this.raf !== null) return;
-    this.raf = requestAnimationFrame(() => {
+    this.raf = requestAnimationFrame((timestamp) => {
       this.raf = null;
-      this.draw();
+      const started = performance.now();
+      this.draw(timestamp);
+      const ended = performance.now();
+      this.marketMetrics.noteDraw(ended, ended - started);
+      this.onPaint?.(this.marketMetrics.snapshot());
+      if (this.motionActive(ended)) this.requestDraw();
     });
   }
 
   computeFrame() {
     const { width, height, candles, barWidth, offsetBars, gap } = this;
-    const plotLeft = 12, plotRight = width - 80;
+    const plotLeft = 12, plotRight = width - (this.profileActive() ? 190 : 80);
     const rsiVisible = this.showRSI && height >= 340;
     const rsiHeight = rsiVisible ? clamp(height * .16, 58, 104) : 0;
     const rsiTop = rsiVisible ? height - 28 - rsiHeight : null;
@@ -325,8 +437,82 @@ export class CandleChart {
     };
   }
 
-  draw() {
+  drawDepthProfile(frame, COLORS, now) {
+    const { ctx, width: w } = this;
+    const { plotRight: right, priceTop: top, priceBottom: bottom, prices } = frame;
+    const railLeft = right + 77, railRight = w - 8;
+    const railWidth = railRight - railLeft;
+    if (!(railWidth > 10)) return;
+    ctx.save();
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(railLeft, top, railWidth, bottom - top);
+    ctx.strokeStyle = COLORS.grid;
+    ctx.beginPath();
+    ctx.moveTo(railLeft - 4, top);
+    ctx.lineTo(railLeft - 4, bottom);
+    ctx.stroke();
+    ctx.font = '9px ui-monospace, Consolas, monospace';
+    ctx.fillStyle = COLORS.labels;
+    ctx.fillText('L2 DEPTH', railLeft + 3, top + 8);
+    if (!this.depthPrepared) {
+      ctx.fillText('WAITING', railLeft + 3, top + 24);
+      ctx.restore();
+      return;
+    }
+
+    // Map level prices through this exact chart's linear or logarithmic scale.
+    const bins = 96;
+    const pricesAtY = Array.from({ length: bins }, (_, i) =>
+      prices.price(top + (bottom - top) * i / (bins - 1)));
+    const target = sampleDepthProfile(this.depthPrepared, pricesAtY);
+    const transition = this.depthTween;
+    const from = transition && this.canAnimate() ?
+      sampleDepthProfile(transition.from, pricesAtY) : null;
+    const shape = interpolateDepthProfile(from, target,
+      transition ? motionProgress(transition.started, now) : 1);
+    const peak = Math.max(1e-10, ...shape.bids, ...shape.asks);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(railLeft, top + 18, railWidth, bottom - top - 18);
+    ctx.clip();
+    const paint = (values, color) => {
+      let first = -1, last = -1;
+      const coords = [];
+      for (let i = 0; i < values.length; i++) {
+        if (!(values[i] > 0)) continue;
+        const y = top + (bottom - top) * i / (bins - 1);
+        const x = railLeft + Math.sqrt(values[i] / peak) * (railWidth - 4);
+        coords.push([x, y]);
+        if (first === -1) first = i;
+        last = i;
+      }
+      if (!coords.length) return;
+      ctx.beginPath();
+      ctx.moveTo(...coords[0]);
+      for (const coord of coords.slice(1)) ctx.lineTo(...coord);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.65;
+      ctx.stroke();
+      ctx.lineTo(railLeft, coords.at(-1)[1]);
+      ctx.lineTo(railLeft, coords[0][1]);
+      ctx.closePath();
+      ctx.globalAlpha = .12;
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    };
+    paint(shape.asks, COLORS.down);
+    paint(shape.bids, COLORS.up);
+    ctx.restore();
+    const stale = Date.now() - this.depthUpdatedAt > 10000;
+    ctx.fillStyle = stale ? COLORS.down : COLORS.labels;
+    ctx.fillText(stale ? 'STALE' : 'LIVE L2', railLeft + 3, bottom - 8);
+    ctx.restore();
+  }
+
+  draw(now = performance.now()) {
     const { ctx, width: w, height: h, candles } = this;
+    const movingCandle = this.displayedCandle(now);
     const COLORS = CHART_COLORS[this.theme] || CHART_COLORS.noir;
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = COLORS.bg;
@@ -376,7 +562,7 @@ export class CandleChart {
     ctx.beginPath(); ctx.rect(left, top, right - left, volumeBottom - top);
     ctx.clip();
     for (let i = start; i <= end; i++) {
-      const candle = candles[i];
+      const candle = i === candles.length - 1 ? movingCandle || candles[i] : candles[i];
       const x = coordinates.x(i);
       const color = candle.close >= candle.open ? COLORS.up : COLORS.down;
       const highY = prices.y(candle.high), lowY = prices.y(candle.low);
@@ -526,17 +712,32 @@ export class CandleChart {
       ctx.fillText('RSI 14', left + 6, rsiTop + 11);
     }
 
+    if (this.profileActive()) this.drawDepthProfile(frame, COLORS, now);
+
     if (candles.length) {
       const last = candles[candles.length - 1];
-      const lastY = prices.y(last.close);
+      const rawPrice = this.currentMarketPrice() ?? last.close;
+      const paintedPrice = this.displayedPrice(now) ?? rawPrice;
+      const lastY = Math.max(top, Math.min(bottom, prices.y(paintedPrice)));
       ctx.strokeStyle = COLORS.last;
       ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(left, lastY); ctx.lineTo(right, lastY); ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = COLORS.last;
-      ctx.fillRect(right + 1, lastY - 10, w - right - 2, 20);
+      ctx.fillRect(right + 1, lastY - 10,
+        this.profileActive() ? 73 : w - right - 2, 20);
       ctx.fillStyle = COLORS.lastText;
-      ctx.fillText(formatPrice(last.close), right + 5, lastY);
+      ctx.fillText(formatPrice(rawPrice), right + 5, lastY);
+      if (this.lastTrade && this.canAnimate()) {
+        const elapsed = now - this.lastTrade.started;
+        if (elapsed >= 0 && elapsed < PULSE_DURATION_MS) {
+          ctx.beginPath();
+          ctx.arc(right - 4, lastY, 2 + 5 * (1 - elapsed / PULSE_DURATION_MS), 0, Math.PI * 2);
+          ctx.strokeStyle = this.lastTrade.side === 'sell' ? COLORS.down : COLORS.up;
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+        }
+      }
     }
 
     if (Number.isFinite(this.externalCrossTime) && !this.pointer) {
@@ -560,7 +761,8 @@ export class CandleChart {
       if (y <= bottom && y >= top) {
         ctx.beginPath(); ctx.moveTo(left, y + .5); ctx.lineTo(right, y + .5); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = COLORS.hoverBg; ctx.fillRect(right + 1, y - 10, w - right - 2, 20);
+        ctx.fillStyle = COLORS.hoverBg; ctx.fillRect(right + 1, y - 10,
+          this.profileActive() ? 73 : w - right - 2, 20);
         ctx.fillStyle = COLORS.hoverText; ctx.fillText(formatPrice(prices.price(y)), right + 5, y);
       }
       ctx.setLineDash([]);
@@ -757,11 +959,11 @@ export class CandleChart {
     if (!this.candles.length) return;
     event.preventDefault();
     const bounds = this.canvas.getBoundingClientRect();
-    const x = clamp(event.clientX - bounds.left, 12, this.width - 80);
+    const x = clamp(event.clientX - bounds.left, 12, this.computeFrame().plotRight);
     const oldIndex = this.computeFrame().coordinates.index(x);
     const direction = event.deltaY < 0 ? 1 : -1;
     this.barWidth = clamp(this.barWidth * (direction > 0 ? 1.16 : 1 / 1.16), 2, 45);
-    const right = this.width - 80;
+    const right = this.computeFrame().plotRight;
     this.offsetBars = clamp(this.candles.length - 1 + this.gap -
       oldIndex - (right - x) / this.barWidth, -60, this.candles.length - 1 + this.gap);
     this.maybeNeedHistory();

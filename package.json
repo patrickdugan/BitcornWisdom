@@ -1,0 +1,19 @@
+{
+  "name": "bitcornwisdom",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Dependency-free BitcoinWisdom-inspired market terminal",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check server.mjs && node --check src/main.js && node --check src/chart.js && node --check src/binance.js && node --check src/core.js && node --check src/indicators.js && node --check src/heatmap.js && node --check src/demo.js && npm test",
+    "smoke": "node test/browser-smoke.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

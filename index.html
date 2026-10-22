@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1219">
+  <meta name="description" content="BitcornWisdom: a dependency-free BitcoinWisdom-inspired live crypto chart terminal.">
+  <title>BitcornWisdom • Live Markets</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/src/main.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="branding"><div class="brand-glyph" aria-hidden="true">₿</div>
+        <div><strong>Bitcorn<span>Wisdom</span></strong><small>LIVE MARKET TERMINAL</small></div>
+      </div>
+      <form id="market-form" class="market-form" autocomplete="off">
+        <label for="market">Market</label>
+        <select id="market" aria-label="Exchange market">
+          <option value="spot">Binance Spot</option>
+          <option value="futures">Binance USDⓈ-M</option>
+        </select>
+        <label for="symbol">Symbol</label>
+        <input id="symbol" name="symbol" aria-label="Market symbol" spellcheck="false" maxlength="24"
+          pattern="[A-Za-z0-9]{4,24}" value="BTCUSDT">
+        <button type="submit" class="button primary">Load</button>
+      </form>
+      <div class="connection"><span id="status-dot" class="status-dot"></span>
+        <span id="connection-label" role="status" aria-live="polite">Starting…</span></div>
+    </header>
+
+    <main class="workspace">
+      <section class="main-panel" aria-label="Market chart">
+        <div class="market-head">
+          <div class="market-identity"><div id="pair-title" class="pair">BTC / USDT</div>
+            <div id="market-subtitle" class="muted">BINANCE SPOT · UTC</div></div>
+          <div class="quote"><span id="last-price">—</span>
+            <span id="price-change" class="muted">OHLCV</span></div>
+        </div>
+        <div class="toolbar">
+          <div class="tool-group"><label for="timeframe" class="muted">Interval</label>
+            <select id="timeframe">
+              <option value="1m">1m</option><option value="3m">3m</option><option value="5m" selected>5m</option>
+              <option value="15m">15m</option><option value="30m">30m</option><option value="1h">1h</option>
+              <option value="2h">2h</option><option value="4h">4h</option><option value="6h">6h</option>
+              <option value="12h">12h</option><option value="1d">1D</option>
+              <option value="3d">3D</option><option value="1w">1W</option>
+            </select>
+          </div>
+          <div class="tool-group">
+            <button class="tool active" id="ema-toggle" aria-pressed="true">EMA 20</button>
+            <button class="tool" id="sma-toggle" aria-pressed="false">SMA 50</button>
+            <button class="tool" id="log-toggle" aria-pressed="false">LOG</button>
+          </div>
+          <div class="tool-group right-group">
+            <button class="tool" id="line-tool" aria-pressed="false" title="Draw a two-point trend line (click twice)">╱ Line</button>
+            <button class="tool" id="undo-tool" title="Undo last line (Ctrl+Z)">↶</button>
+            <button class="tool" id="reset-view" title="Return to latest price (Home)">Reset</button>
+          </div>
+        </div>
+        <div id="chart-frame" class="chart-frame">
+          <canvas id="candle-chart" tabindex="0" aria-label="Interactive candlestick chart. Use arrow keys to pan and zoom."></canvas>
+          <div id="chart-loading" class="chart-message" hidden>Fetching candle history…</div>
+          <div id="chart-error" class="chart-message error-message" role="alert" hidden></div>
+        </div>
+        <div class="chart-footer">
+          <span id="market-note">Public exchange feeds · read only</span>
+          <span>Wheel: zoom · Drag: pan · Arrows: navigate · Home: reset · Ctrl+Z: undo</span>
+        </div>
+      </section>
+
+      <aside class="sidebar" aria-label="Market microstructure">
+        <div class="side-header"><h2>Order book</h2><span class="muted" id="book-pair">BTCUSDT</span></div>
+        <div class="depth-caption"><span>Price (quote)</span><span>Size (base)</span></div>
+        <div id="asks" class="book-side asks" aria-label="Best asks"></div>
+        <div class="spread"><span>Spread</span><strong id="spread">—</strong></div>
+        <div id="bids" class="book-side bids" aria-label="Best bids"></div>
+        <div class="depth-footer">Top 20 partial book · exchange snapshots</div>
+        <div class="side-header secondary"><h2>Liquidity history</h2>
+          <span class="muted">LIVE · 20 levels</span></div>
+        <div id="heatmap-frame" class="heatmap-frame">
+          <canvas id="liquidity-heatmap" aria-label="Recent order-book liquidity heatmap"></canvas>
+        </div>
+        <div class="side-header secondary"><h2>Recent trades</h2><span class="muted">BTC/quote</span></div>
+        <div class="depth-caption"><span>Price</span><span>Quantity</span><span>UTC</span></div>
+        <div id="trades" class="trades" aria-label="Live public trades"></div>
+      </aside>
+    </main>
+
+    <footer class="bottom-bar">
+      <span>BitcornWisdom <span class="dim">v0.1</span> · independent open-source project</span>
+      <span><button id="demo-toggle" class="text-link">Use offline demo</button> · <a href="https://github.com/patrickdugan/BitcornWisdom" target="_blank" rel="noopener noreferrer">GitHub</a></span>
+    </footer>
+  </div>
+</body>
+</html>

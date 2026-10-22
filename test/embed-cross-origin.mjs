@@ -56,20 +56,24 @@ function parentPage() {
     <title>Independent demo host</title>
     <style>body{margin:0;background:#121821;color:white;font:14px sans-serif}
     #chart{height:580px;width:92%;margin:30px auto}</style>
-    <script type="module">
-      import { mountBitcornChart } from '${cdnOrigin}/src/embed-sdk.js';
-      window.demoEvents = [];
-      window.widget = mountBitcornChart('#chart', {
-        embedUrl: '${cdnOrigin}/embed.html', instrument:'BTC-USD-SPOT',
-        preferred:'kraken', interval:'1m', demo:true, height:'580px'
-      });
-      for (const event of ['ready','state','source','candle','error','status']) {
-        window.widget.on(event,payload=>window.demoEvents.push({event,payload}));
-      }
-      window.widget.ready.then(()=>{window.demoReady=true;},
-        error=>{window.demoError=error.message;});
-    </script>
+    <script type="module" src="/host.js"></script>
   </head><body><h1>Independent host origin</h1><div id="chart"></div></body></html>`;
+}
+
+function hostModule() {
+  return `
+    import { mountBitcornChart } from '${cdnOrigin}/src/embed-sdk.js';
+    window.demoEvents = [];
+    window.widget = mountBitcornChart('#chart', {
+      embedUrl:'${cdnOrigin}/embed.html', instrument:'BTC-USD-SPOT',
+      preferred:'kraken', interval:'1m', demo:true, height:'580px'
+    });
+    for (const event of ['ready','state','source','candle','error','status']) {
+      window.widget.on(event, payload => window.demoEvents.push({event,payload}));
+    }
+    window.widget.ready.then(() => {window.demoReady = true;},
+      error => {window.demoError = error.message;});
+  `;
 }
 
 test('cross-origin ESM SDK loads with CORS, controls isolated iframe and rejects forged messages',
@@ -79,12 +83,14 @@ test('cross-origin ESM SDK loads with CORS, controls isolated iframe and rejects
     env: { ...process.env, HOST:'127.0.0.1', PORT:String(cdnPort) }, stdio:'ignore'
   });
   const app = createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type':'text/html; charset=utf-8',
+    const isModule = req.url === '/host.js';
+    res.writeHead(200, { 'Content-Type':isModule ?
+      'text/javascript; charset=utf-8' : 'text/html; charset=utf-8',
       'Content-Security-Policy':
         "default-src 'self'; script-src 'self' " + cdnOrigin +
         "; style-src 'self' 'unsafe-inline'; frame-src " + cdnOrigin + "; object-src 'none'"
     });
-    res.end(parentPage());
+    res.end(isModule ? hostModule() : parentPage());
   });
   let chrome, socket;
   try {
@@ -153,10 +159,10 @@ test('cross-origin ESM SDK loads with CORS, controls isolated iframe and rejects
 
     await evalJS("window.widget.setTheme('verdigris');window.widget.requestState()");
     await until(async () => await evalJS("window.widget.getState()?.theme === 'verdigris'"));
-    await evalJS("window.widget.destroy()");
-    assert.equal(await evalJS("document.querySelectorAll('#chart iframe').length"),0);
     const shot = await send('Page.captureScreenshot', {format:'png',captureBeyondViewport:false});
     await writeFile('bitcorn-cross-origin.png',Buffer.from(shot.data,'base64'));
+    await evalJS("window.widget.destroy()");
+    assert.equal(await evalJS("document.querySelectorAll('#chart iframe').length"),0);
     console.log('Third-party origin embed SDK/CORS: PASS');
   } finally {
     socket?.close();

@@ -41,7 +41,8 @@ const settings = {
   theme: normalTheme(previous.theme),
   favorites: previous.favorites === undefined ? MARKET_PRESETS.slice(0, 3) : sanitizeFavorites(previous.favorites),
   watchlistVisible: previous.watchlistVisible ?? !window.matchMedia('(max-width:1110px)').matches,
-  depthVisible: previous.depthVisible ?? true
+  depthVisible: previous.depthVisible ?? true,
+  motionEnabled: previous.motionEnabled ?? !window.matchMedia('(prefers-reduced-motion: reduce)').matches
 };
 
 try { validateSelection(settings.market, settings.symbol, settings.interval); }
@@ -75,7 +76,8 @@ const archive = new LiquidityArchive();
 chart.setOptions({
   showEMA: settings.showEMA, showSMA: settings.showSMA,
   showBB: settings.showBB, showRSI: settings.showRSI,
-  theme: settings.theme, logarithmic: settings.logarithmic
+  theme: settings.theme, logarithmic: settings.logarithmic,
+  motionEnabled: settings.motionEnabled, depthProfileEnabled: true
 });
 
 let session = 0;
@@ -88,7 +90,20 @@ let demoTimer = null;
 let lastBookRender = 0;
 let lastTradeRender = 0;
 let trades = [];
+let tradeSequence = 0;
 let demoTick = 0;
+let lastMotionStatPaint = 0;
+chart.onPaint = (metrics) => {
+  const now = performance.now();
+  if (now - lastMotionStatPaint < 850) return;
+  lastMotionStatPaint = now;
+  const draw = metrics.canvasDrawMs === null ? '—' : metrics.canvasDrawMs.toFixed(1) + ' ms';
+  const latency = metrics.updateToDrawMs === null ? '—' :
+    metrics.updateToDrawMs.toFixed(1) + ' ms';
+  const fps = metrics.activeFps === null ? '—' : String(metrics.activeFps);
+  el('market-motion-stats').textContent = 'DRAW p95 ' + draw +
+    ' · UPDATE→DRAW p95 ' + latency + ' · ACTIVE FPS ' + fps;
+};
 let activeLiquiditySeries = null;
 let liquidityStorageFailure = null;
 let liquidityReplayTimer = null;
@@ -194,12 +209,14 @@ function updateButtons() {
     ['sma-toggle', settings.showSMA],
     ['log-toggle', settings.logarithmic],
     ['bb-toggle', settings.showBB],
-    ['rsi-toggle', settings.showRSI]
+    ['rsi-toggle', settings.showRSI],
+    ['motion-toggle', settings.motionEnabled]
   ]) {
     const button = el(id);
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   }
+  el('motion-toggle').textContent = settings.motionEnabled ? '◉ Motion' : '◯ Motion';
   updateTimeframeOptions();
   el('demo-toggle').textContent = settings.demo ? 'Return to live feed' : 'Use offline demo';
 }
@@ -251,7 +268,7 @@ function setPrice(price) {
   workspaceUI?.setQuote(price);
   const first = chart.candles[0], last = chart.candles.at(-1);
   if (first && last && first.close > 0) {
-    const change = 100 * (last.close - first.open) / first.open;
+    const change = 100 * (price - first.open) / first.open;
     const label = el('price-change');
     label.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '% in loaded window';
     label.style.color = change >= 0 ? '#8acc9d' : '#e2828b';
@@ -273,6 +290,7 @@ function showError(error) {
 }
 
 function clearTapeAndBook() {
+  chart.clearDepthBook();
   trades = [];
   lastTradeRender = 0;
   lastBookRender = 0;
@@ -284,21 +302,35 @@ function clearTapeAndBook() {
   heatmap.clear();
 }
 
+function createBookRow(side) {
+  const row = document.createElement('div');
+  row.className = 'book-row ' + side;
+  const bar = document.createElement('span');
+  bar.className = 'bar';
+  const price = document.createElement('span');
+  const quantity = document.createElement('span');
+  row.append(bar, price, quantity);
+  return row;
+}
+function renderBookSide(container, levels, side, maxQty) {
+  for (let i = 0; i < levels.length; i++) {
+    const row = container.children[i] || createBookRow(side);
+    const [price, quantity] = levels[i];
+    row.children[1].textContent = formatPrice(price);
+    row.children[2].textContent = formatCompact(quantity);
+    // Keep each row mounted so the bar width can transition between snapshots.
+    row.children[0].style.width = Math.min(100, quantity / maxQty * 100).toFixed(2) + '%';
+    if (!row.isConnected) container.append(row);
+  }
+  while (container.children.length > levels.length) container.lastElementChild.remove();
+}
 function renderBook(book) {
   if (!book.bids.length || !book.asks.length) return;
   const bids = book.bids.slice(0, 10);
   const asks = book.asks.slice(0, 10);
   const maxQty = Math.max(1e-10, ...bids.map((row) => row[1]), ...asks.map((row) => row[1]));
-  function rows(levels, side) {
-    return levels.map(([price, quantity]) => {
-      const width = Math.min(100, quantity / maxQty * 100).toFixed(2);
-      return '<div class="book-row ' + side + '"><span class="bar" style="width:' + width +
-        '%"></span><span>' + formatPrice(price) + '</span><span>' +
-        formatCompact(quantity) + '</span></div>';
-    }).join('');
-  }
-  el('asks').innerHTML = rows(asks.reverse(), 'ask');
-  el('bids').innerHTML = rows(bids, 'bid');
+  renderBookSide(el('asks'), asks.reverse(), 'ask', maxQty);
+  renderBookSide(el('bids'), bids, 'bid', maxQty);
   const spread = Math.max(0, book.asks[0][0] - book.bids[0][0]);
   el('spread').textContent = formatPrice(spread) + ' (' +
     (100 * spread / book.asks[0][0]).toFixed(4) + '%)';
@@ -308,17 +340,37 @@ function renderBook(book) {
     'Offline sample book';
 }
 
+function makeTradeRow(row) {
+  const element = document.createElement('div');
+  element.className = 'trade-row ' + (row.side === 'sell' ? 'sell' : 'buy') + ' trade-row--new';
+  element.dataset.tradeSeq = String(row.uiSeq);
+  element.append(document.createElement('span'), document.createElement('span'),
+    document.createElement('span'));
+  return element;
+}
+function renderTradeTape() {
+  const container = el('trades');
+  const mounted = new Map([...container.children].map((node) => [node.dataset.tradeSeq, node]));
+  const fragment = document.createDocumentFragment();
+  for (const row of trades.slice(0, 30)) {
+    const key = String(row.uiSeq);
+    const element = mounted.get(key) || makeTradeRow(row);
+    element.children[0].textContent = formatPrice(row.price);
+    element.children[1].textContent = formatCompact(row.quantity);
+    element.children[2].textContent = new Date(row.time).toISOString().slice(11, 19);
+    fragment.append(element);
+  }
+  container.replaceChildren(fragment);
+}
 function addTrade(trade) {
-  if (!Number.isFinite(trade.price) || !Number.isFinite(trade.quantity)) return;
-  trades.unshift(trade);
+  if (!Number.isFinite(trade.price) || !Number.isFinite(trade.quantity) ||
+    !Number.isFinite(trade.time)) return;
+  trades.unshift({ ...trade, uiSeq: ++tradeSequence });
   if (trades.length > 40) trades.pop();
   const now = Date.now();
   if (now - lastTradeRender < 280) return;
   lastTradeRender = now;
-  el('trades').innerHTML = trades.slice(0, 30).map((row) =>
-    '<div class="trade-row ' + row.side + '"><span>' + formatPrice(row.price) +
-    '</span><span>' + formatCompact(row.quantity) + '</span><span>' +
-    new Date(row.time).toISOString().slice(11, 19) + '</span></div>').join('');
+  renderTradeTape();
 }
 
 function stopFeed() {
@@ -349,10 +401,13 @@ function startDemo(version) {
     setPrice(candle.close);
     const time = Date.now();
     const book = makeDemoDepth(candle.close, time);
+    chart.setDepthBook(book);
     renderBook(book);
     captureLiquidity(book, candle.close);
-    addTrade({ time, price: candle.close, quantity: 0.02 + Math.abs(Math.sin(demoTick) * .8),
-      side: demoTick % 2 ? 'buy' : 'sell' });
+    const trade = { time, price: candle.close, quantity: 0.02 + Math.abs(Math.sin(demoTick) * .8),
+      side: demoTick % 2 ? 'buy' : 'sell' };
+    chart.updateTrade(trade);
+    addTrade(trade);
   };
   onTick();
   demoTimer = setInterval(onTick, 1100);
@@ -425,6 +480,7 @@ async function loadMarket() {
       const latest = chart.candles.at(-1);
       const center = latest?.close ?? ((book.bids[0][0] + book.asks[0][0]) / 2);
       captureLiquidity(book, center);
+      chart.setDepthBook(book);
       if (Date.now() - lastBookRender > 240) {
         lastBookRender = Date.now();
         renderBook(book);
@@ -437,10 +493,16 @@ async function loadMarket() {
         chart.updateCandle(candle);
         setPrice(candle.close);
       },
-      onTrade: (trade) => { if (session === current) addTrade(trade); },
+      onTrade: (trade) => {
+        if (session !== current) return;
+        chart.updateTrade(trade);
+        setPrice(trade.price);
+        addTrade(trade);
+      },
       onDepth,
       onBookStatus: (status, reason) => {
         if (session !== current || status === 'live') return;
+        chart.clearDepthBook();
         el('book-status').textContent = 'Book syncing' + (reason ? ': ' + reason : '…');
       },
       onError: (error) => console.warn('Market frame rejected:', error)
@@ -486,6 +548,13 @@ async function loadMarket() {
     if (session === current) controller = null;
   }
 }
+
+el('motion-toggle').addEventListener('click', () => {
+  settings.motionEnabled = !settings.motionEnabled;
+  chart.setOptions({ motionEnabled: settings.motionEnabled });
+  updateButtons();
+  persist();
+});
 
 el('market-form').addEventListener('submit', (event) => {
   event.preventDefault();

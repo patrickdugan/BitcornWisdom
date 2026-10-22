@@ -11,8 +11,10 @@
     "start": "node server.mjs",
     "dev": "node server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check src/main.js && node --check src/chart.js && node --check src/binance.js && node --check src/core.js && node --check src/indicators.js && node --check src/heatmap.js && node --check src/demo.js && npm test",
-    "smoke": "node test/browser-smoke.mjs"
+    "check": "node --check server.mjs && node --check src/main.js && node --check src/chart.js && node --check src/binance.js && node --check src/core.js && node --check src/indicators.js && node --check src/heatmap.js && node --check src/demo.js && node --check src/realtime.js && node --check src/orderbook.js && node --check src/kraken.js && npm test",
+    "smoke": "node test/browser-smoke.mjs",
+    "probe:live": "node test/live-probe.mjs",
+    "browser:live": "node test/live-browser.mjs"
   },
   "dependencies": {},
   "devDependencies": {}

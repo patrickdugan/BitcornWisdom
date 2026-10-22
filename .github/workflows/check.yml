@@ -13,9 +13,32 @@ jobs:
           node-version: '22'
       - run: npm run check
       - run: npm run smoke
+      - run: npm run probe:live
+        if: github.event_name == 'push'
+        continue-on-error: true
+        timeout-minutes: 1
+      - run: npm run browser:live
+        if: github.event_name == 'push'
+        continue-on-error: true
+        timeout-minutes: 1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: bitcorn-demo-preview
           path: bitcorn-demo.png
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && always()
+        with:
+          name: live-market-probe
+          path: live-probe.json
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && always()
+        with:
+          name: browser-live-probe
+          path: |
+            live-browser-report.json
+            kraken-live-preview.png
+            binance-spot-live-preview.png
           if-no-files-found: ignore

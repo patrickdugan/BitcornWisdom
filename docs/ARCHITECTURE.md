@@ -1,21 +1,15 @@
-# Architecture
+# Architecture v0.2
 
-    Binance public REST -> fetchCandles -> normalized OHLCV ──┐
-                                                             ├─ Canvas2D chart
-    Binance public WebSocket -> kline -> upsertCandle ────────┤  + SMA / EMA
-                             -> trade -> recent trade tape   │  + trend lines
-                             -> depth20 -> order-book ladder ├─ heatmap
-                                          + rolling snapshots│
-    localStorage ---------------------------------------------┘
+Binance Spot/Futures REST history and WS kline/trades, and Kraken REST OHLC / WS v2, all supply the same normalized candle/trade model to the dependency-free Canvas2D chart.
 
-**No JavaScript runtime dependencies.** The browser uses native modules; the optional local server is plain Node HTTP. A market-data server becomes useful when persistent historical depth, alerts, aggregation or shared WebSocket fanout are justified.
+Binance L2 flows from a dedicated public depth WebSocket through an IO-free state machine. The stream buffers events before a REST snapshot is retrieved, requires an overlapping first update, validates spot U/u or futures U/u/pu sequence continuity, and invalidates its maps when a gap is detected. The supervising BinanceDepthStream fetches another snapshot after resynchronization. The futures high-frequency feed uses the 2026 /public route; candles and aggregate trades use /market.
 
-The chart has a separate coordinate model for candle index ↔ x, price ↔ y, with linear/logarithmic modes and bounded visible-window drawing. A current market session owns one abortable REST history request and one reconnecting WebSocket. Switching markets invalidates that session; old callbacks are ignored.
+Kraken L2 uses the 25-level WebSocket v2 book subscription. Price and quantity spellings are preserved before JSON float conversion so the official top-ten CRC32 matches. On a checksum mismatch, the local state is destroyed and the socket reconnects.
 
-Binance spot and futures data map to the same candle, trade, and partial-depth representation. The order-book view deliberately uses self-contained top-20 depth packets. A full book requires documented Binance snapshot/delta sequence reconciliation and recovery after gaps, which belongs in the next milestone.
+Both validated books feed the 10-by-10 bid/ask ladder and a sampled heatmap. Near-mid liquidity is binned at about one-second intervals into at most 200 bands and 160 time columns.
 
-The heatmap takes at most one partial depth sample per ~950 ms. Its 160-column ring uses log1p(quantity × price) for intensity and a compact viridis ramp. This is an MVP visualization of the nearest live liquidity levels. It cannot stand in for historical L2 data.
+The chart consumes normalized UTC millisecond OHLCV and uses the same coordinate transform for candles, indicators, cursor and persisted line drawings. One active market session owns its REST controller and sockets. Market switching closes prior feeds and blocks stale updates.
 
-Security scope: read-only public exchange data, alphanumeric symbol/known interval validation, localStorage only, no secrets or accounts. The server allows only public app assets. Browser market-data traffic goes to official exchange hosts.
+A future backend is justified for historical L2 retention, replay or multi-venue aggregation. At present all market access is public, read-only and direct from the browser, with no credentials or account state.
 
-Tests cover parsing, normalization, candle upserts, indicator indexing, coordinate transforms, log inverse scales, depth ordering and demo reproducibility.
+Unit tests cover numerical transforms, parsing, order-book snapshot overlap, sequence gaps, Kraken official CRC32 sample, candle upserts, and depth binning. The offline browser smoke is distinct from a live endpoint probe, where regional HTTP errors are recorded.

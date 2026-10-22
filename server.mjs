@@ -50,8 +50,8 @@ createServer(async (request, response) => {
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
       'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-        "connect-src 'self' https://data-api.binance.vision https://api.binance.com https://fapi.binance.com " +
-        "wss://data-stream.binance.vision wss://fstream.binance.com; " +
+        "connect-src 'self' https://data-api.binance.vision https://api.binance.com https://fapi.binance.com https://api.kraken.com " +
+        "wss://data-stream.binance.vision wss://fstream.binance.com wss://ws.kraken.com; " +
         "img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
     });
     if (request.method === 'HEAD') response.end();

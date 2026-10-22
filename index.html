@@ -20,6 +20,7 @@
         <select id="market" aria-label="Exchange market">
           <option value="spot">Binance Spot</option>
           <option value="futures">Binance USDⓈ-M</option>
+          <option value="kraken">Kraken Spot</option>
         </select>
         <label for="symbol">Symbol</label>
         <input id="symbol" name="symbol" aria-label="Market symbol" spellcheck="false" maxlength="24"
@@ -76,9 +77,9 @@
         <div id="asks" class="book-side asks" aria-label="Best asks"></div>
         <div class="spread"><span>Spread</span><strong id="spread">—</strong></div>
         <div id="bids" class="book-side bids" aria-label="Best bids"></div>
-        <div class="depth-footer">Top 20 partial book · exchange snapshots</div>
+        <div id="book-status" class="depth-footer" role="status">Synchronizing book…</div>
         <div class="side-header secondary"><h2>Liquidity history</h2>
-          <span class="muted">LIVE · 20 levels</span></div>
+          <span class="muted">LIVE · BINNED L2</span></div>
         <div id="heatmap-frame" class="heatmap-frame">
           <canvas id="liquidity-heatmap" aria-label="Recent order-book liquidity heatmap"></canvas>
         </div>
@@ -89,7 +90,7 @@
     </main>
 
     <footer class="bottom-bar">
-      <span>BitcornWisdom <span class="dim">v0.1</span> · independent open-source project</span>
+      <span>BitcornWisdom <span class="dim">v0.2</span> · independent open-source project</span>
       <span><button id="demo-toggle" class="text-link">Use offline demo</button> · <a href="https://github.com/patrickdugan/BitcornWisdom" target="_blank" rel="noopener noreferrer">GitHub</a></span>
     </footer>
   </div>

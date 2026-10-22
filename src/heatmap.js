@@ -14,6 +14,24 @@ const VIRIDIS = Array.from({ length: 256 }, (_, n) => {
 
 export const heatColor = (fraction) => VIRIDIS[Math.round(clamp(fraction, 0, 1) * 255)];
 
+/** Aggregate near-mid liquidity into bounded price bins (base quantity per bin). */
+export function binBookLevels(book, mid, range = 0.01, bucketCount = 200) {
+  if (!Number.isFinite(mid) || mid <= 0 || range <= 0 || !Number.isInteger(bucketCount) ||
+      bucketCount < 1) return [];
+  const low = mid * (1 - range);
+  const high = mid * (1 + range);
+  const width = (high - low) / bucketCount;
+  const bins = new Map();
+  for (const [price, quantity] of [...(book?.bids || []), ...(book?.asks || [])]) {
+    if (!(price >= low && price <= high && quantity > 0)) continue;
+    const index = Math.min(bucketCount - 1, Math.floor((price - low) / width));
+    const center = low + width * (index + .5);
+    bins.set(index, (bins.get(index) || 0) + price * quantity / center);
+  }
+  return [...bins].sort((a, b) => a[0] - b[0]).map(([index, quantity]) =>
+    [low + width * (index + .5), quantity]);
+}
+
 export class LiquidityHeatmap {
   constructor(canvas) {
     this.canvas = canvas;
@@ -41,8 +59,7 @@ export class LiquidityHeatmap {
     this.lastSample = now;
     this.columns.push({
       time: now, price,
-      levels: [...book.bids.map(([p, q]) => [p, q]),
-        ...book.asks.map(([p, q]) => [p, q])]
+      levels: binBookLevels(book, price)
     });
     if (this.columns.length > this.maxColumns) this.columns.shift();
     this.requestDraw();

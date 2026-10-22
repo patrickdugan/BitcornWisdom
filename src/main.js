@@ -1,4 +1,5 @@
-import { BinanceStream, checkMarket, fetchCandles } from './binance.js';
+import { BinanceStream, BinanceDepthStream, checkMarket, fetchCandles } from './binance.js';
+import { KrakenStream, checkKraken, fetchKrakenCandles, KRAKEN_INTERVALS } from './kraken.js';
 import { CandleChart } from './chart.js';
 import { formatCompact, formatPrice, INTERVALS } from './core.js';
 import { makeDemoCandles, makeDemoDepth, nextDemoCandle } from './demo.js';
@@ -33,8 +34,18 @@ const settings = {
   logarithmic: previous.logarithmic ?? false
 };
 
-try { checkMarket(settings.market, settings.symbol, settings.interval); }
+try { validateSelection(settings.market, settings.symbol, settings.interval); }
 catch { settings.market = 'spot'; settings.symbol = 'BTCUSDT'; settings.interval = '5m'; }
+
+function validateSelection(market, symbol, interval) {
+  if (market === 'kraken') checkKraken(symbol, interval);
+  else checkMarket(market, symbol, interval);
+}
+
+function updateTimeframeOptions() {
+  for (const option of el('timeframe').options)
+    option.disabled = settings.market === 'kraken' && !Object.hasOwn(KRAKEN_INTERVALS, option.value);
+}
 
 const chart = new CandleChart(el('candle-chart'), {
   onDrawingsChange: (drawings) => writeStored(drawingKey(), drawings)
@@ -46,6 +57,7 @@ chart.setOptions({
 
 let session = 0;
 let stream = null;
+let depthStream = null;
 let controller = null;
 let demoTimer = null;
 let lastBookRender = 0;
@@ -79,6 +91,7 @@ function updateButtons() {
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   }
+  updateTimeframeOptions();
   el('demo-toggle').textContent = settings.demo ? 'Return to live feed' : 'Use offline demo';
 }
 
@@ -101,11 +114,13 @@ function updateHeader() {
     settings.symbol.endsWith(q) && settings.symbol.length > q.length);
   const base = quote ? settings.symbol.slice(0, -quote.length) : settings.symbol;
   el('pair-title').textContent = quote ? base + ' / ' + quote : settings.symbol;
-  el('market-subtitle').textContent = (settings.market === 'spot' ? 'BINANCE SPOT' : 'BINANCE USDⓈ-M') +
-    ' · UTC' + (settings.demo ? ' · DEMO DATA' : '');
+  const venue = settings.market === 'kraken' ? 'KRAKEN SPOT' :
+    (settings.market === 'spot' ? 'BINANCE SPOT' : 'BINANCE USDⓈ-M');
+  el('market-subtitle').textContent = venue + ' · UTC' + (settings.demo ? ' · DEMO DATA' : '');
   el('book-pair').textContent = settings.symbol;
   el('market-note').textContent = settings.demo ?
-    'Simulated prices · for interaction testing only' : 'Public Binance feeds · read only';
+    'Simulated prices · for interaction testing only' :
+    'Public ' + (settings.market === 'kraken' ? 'Kraken' : 'Binance') + ' feeds · read only';
 }
 
 function setPrice(price) {
@@ -140,6 +155,7 @@ function clearTapeAndBook() {
   el('asks').textContent = 'Waiting for depth…';
   el('bids').textContent = '';
   el('spread').textContent = '—';
+  el('book-status').textContent = 'Synchronizing book…';
   el('trades').textContent = 'Waiting for trades…';
   heatmap.clear();
 }
@@ -162,6 +178,9 @@ function renderBook(book) {
   const spread = Math.max(0, book.asks[0][0] - book.bids[0][0]);
   el('spread').textContent = formatPrice(spread) + ' (' +
     (100 * spread / book.asks[0][0]).toFixed(4) + '%)';
+  el('book-status').textContent = book.source === 'checksum-verified' ? 'Kraken checksum-verified L2 · 25 levels' :
+    book.source === 'sequenced-depth' ? 'Binance synchronized L2 · 1,000 levels max' :
+    'Offline sample book';
 }
 
 function addTrade(trade) {
@@ -181,6 +200,7 @@ function stopFeed() {
   session += 1;
   if (controller) { controller.abort(); controller = null; }
   if (stream) { stream.close(); stream = null; }
+  if (depthStream) { depthStream.close(); depthStream = null; }
   if (demoTimer !== null) { clearInterval(demoTimer); demoTimer = null; }
 }
 
@@ -232,13 +252,25 @@ async function loadMarket() {
   setStatus('loading');
   controller = new AbortController();
   try {
-    const data = await fetchCandles(settings.market, settings.symbol, settings.interval, controller.signal);
+    const data = settings.market === 'kraken' ?
+      await fetchKrakenCandles(settings.symbol, settings.interval, controller.signal) :
+      await fetchCandles(settings.market, settings.symbol, settings.interval, controller.signal);
     if (session !== current) return;
     if (data.length === 0) throw new Error('Exchange returned no candles');
     chart.setCandles(data, settings.interval);
     setPrice(data.at(-1).close);
     showLoading(false);
-    stream = new BinanceStream(settings.market, settings.symbol, settings.interval, {
+    const onDepth = (book) => {
+      if (session !== current) return;
+      const latest = chart.candles.at(-1);
+      const center = latest?.close ?? ((book.bids[0][0] + book.asks[0][0]) / 2);
+      heatmap.ingest(book, center);
+      if (Date.now() - lastBookRender > 240) {
+        lastBookRender = Date.now();
+        renderBook(book);
+      }
+    };
+    const callbacks = {
       onStatus: (status) => { if (session === current) setStatus(status); },
       onCandle: (candle) => {
         if (session !== current) return;
@@ -246,17 +278,19 @@ async function loadMarket() {
         setPrice(candle.close);
       },
       onTrade: (trade) => { if (session === current) addTrade(trade); },
-      onDepth: (book) => {
-        if (session !== current) return;
-        const latest = chart.candles.at(-1);
-        heatmap.ingest(book, latest?.close ?? ((book.bids[0][0] + book.asks[0][0]) / 2));
-        if (Date.now() - lastBookRender > 240) {
-          lastBookRender = Date.now();
-          renderBook(book);
-        }
+      onDepth,
+      onBookStatus: (status, reason) => {
+        if (session !== current || status === 'live') return;
+        el('book-status').textContent = 'Book syncing' + (reason ? ': ' + reason : '…');
       },
       onError: (error) => console.warn('Market frame rejected:', error)
-    }).start();
+    };
+    if (settings.market === 'kraken') {
+      stream = new KrakenStream(settings.symbol, settings.interval, callbacks).start();
+    } else {
+      stream = new BinanceStream(settings.market, settings.symbol, settings.interval, callbacks).start();
+      depthStream = new BinanceDepthStream(settings.market, settings.symbol, callbacks).start();
+    }
   } catch (error) {
     if (session === current) showError(error);
   } finally {
@@ -269,7 +303,7 @@ el('market-form').addEventListener('submit', (event) => {
   const symbol = el('symbol').value.trim().toUpperCase();
   const market = el('market').value;
   try {
-    checkMarket(market, symbol, settings.interval);
+    validateSelection(market, symbol, settings.interval);
     settings.symbol = symbol;
     settings.market = market;
     loadMarket();
@@ -278,7 +312,14 @@ el('market-form').addEventListener('submit', (event) => {
   }
 });
 el('market').addEventListener('change', () => {
-  settings.market = el('market').value;
+  const nextMarket = el('market').value;
+  if (nextMarket === 'kraken' && settings.market !== 'kraken' && settings.symbol === 'BTCUSDT')
+    settings.symbol = 'BTCUSD';
+  else if (nextMarket !== 'kraken' && settings.market === 'kraken' && settings.symbol === 'BTCUSD')
+    settings.symbol = 'BTCUSDT';
+  settings.market = nextMarket;
+  if (settings.market === 'kraken' && !Object.hasOwn(KRAKEN_INTERVALS, settings.interval))
+    settings.interval = '5m';
   loadMarket();
 });
 el('timeframe').addEventListener('change', () => {

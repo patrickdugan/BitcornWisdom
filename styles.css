@@ -61,9 +61,9 @@ kbd {
   border: 1px solid var(--border-hi); border-radius: 4px; padding: 3px 5px;
   white-space: nowrap; background: rgba(255,255,255,.015);
 }
-.market-form { display: flex; align-items: center; gap: 7px; min-width: 270px; }
-.market-form select { min-width: 126px; width: 140px; }
-.market-form input { width: 94px; text-transform: uppercase; font-weight: 650; letter-spacing: .4px; }
+.market-form { display: flex; align-items: center; gap: 7px; min-width: 325px; }
+.market-form select { min-width: 162px; width: 162px; }
+.market-form input { width: 111px; flex-shrink: 0; text-transform: uppercase; font-weight: 650; letter-spacing: .4px; }
 input, select {
   height: 34px; background: var(--surface2); color: var(--fg);
   border: 1px solid var(--border); border-radius: 7px; padding: 0 9px;
@@ -342,9 +342,9 @@ input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
   #app { height: auto; min-height: 100dvh; }
   .topbar { flex-wrap: wrap; }
   .command-trigger { order: 4; flex-basis: 100%; }
-  .market-form { order: 3; flex-basis: 100%; justify-content: stretch; }
-  .market-form select { flex: 1; }
-  .market-form input { width: 100px; flex: 1; }
+  .market-form { order: 3; flex-basis: 100%; min-width: 0; justify-content: stretch; }
+  .market-form select { flex: 1; min-width: 0; width: auto; }
+  .market-form input { width: 100px; min-width: 80px; flex: 1; }
   .workspace,.workspace.watchlist-collapsed,.workspace.depth-collapsed,.workspace.watchlist-collapsed.depth-collapsed {
     display: flex; flex-direction: column; flex: 1; min-height: 0; }
   .watchlist { top: 0; bottom: 0; }

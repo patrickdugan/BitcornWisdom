@@ -6,6 +6,8 @@ import { formatCompact, formatPrice, INTERVALS } from './core.js';
 import { makeDemoCandles, makeDemoDepth, nextDemoCandle } from './demo.js';
 import { LiquidityHeatmap } from './heatmap.js';
 import { LiquidityArchive, liquiditySeriesKey, ARCHIVE_POLICY } from './liquidity-archive.js';
+import { normalTheme, sanitizeFavorites, MARKET_PRESETS } from './workspace.js';
+import { mountWorkspace } from './workspace-ui.js';
 
 const el = (id) => document.getElementById(id);
 const STORAGE_KEY = 'bitcornwisdom:settings:v1';
@@ -33,7 +35,13 @@ const settings = {
   demo: url.searchParams.has('demo') ? url.searchParams.get('demo') === '1' : Boolean(previous.demo),
   showEMA: previous.showEMA ?? true,
   showSMA: previous.showSMA ?? false,
-  logarithmic: previous.logarithmic ?? false
+  logarithmic: previous.logarithmic ?? false,
+  showBB: previous.showBB ?? false,
+  showRSI: previous.showRSI ?? false,
+  theme: normalTheme(previous.theme),
+  favorites: previous.favorites === undefined ? MARKET_PRESETS.slice(0, 3) : sanitizeFavorites(previous.favorites),
+  watchlistVisible: previous.watchlistVisible ?? !window.matchMedia('(max-width:1110px)').matches,
+  depthVisible: previous.depthVisible ?? true
 };
 
 try { validateSelection(settings.market, settings.symbol, settings.interval); }
@@ -56,12 +64,15 @@ function updateTimeframeOptions() {
 const chart = new CandleChart(el('candle-chart'), {
   onDrawingsChange: (drawings) => writeStored(drawingKey(), drawings)
 });
+let workspaceUI = null;
 const heatmap = new LiquidityHeatmap(el('liquidity-heatmap'), {
   onChange: (state) => updateLiquidityControls(state)
 });
 const archive = new LiquidityArchive();
 chart.setOptions({
-  showEMA: settings.showEMA, showSMA: settings.showSMA, logarithmic: settings.logarithmic
+  showEMA: settings.showEMA, showSMA: settings.showSMA,
+  showBB: settings.showBB, showRSI: settings.showRSI,
+  theme: settings.theme, logarithmic: settings.logarithmic
 });
 
 let session = 0;
@@ -179,6 +190,8 @@ function updateButtons() {
     ['ema-toggle', settings.showEMA],
     ['sma-toggle', settings.showSMA],
     ['log-toggle', settings.logarithmic],
+    ['bb-toggle', settings.showBB],
+    ['rsi-toggle', settings.showRSI],
     ['line-tool', chart.tool === 'line']
   ]) {
     const button = el(id);
@@ -213,6 +226,7 @@ function updateHeader() {
     (settings.market === 'spot' ? 'BINANCE SPOT' : 'BINANCE USDⓈ-M');
   el('market-subtitle').textContent = venue + ' · UTC' + (settings.demo ? ' · DEMO DATA' : '');
   el('book-pair').textContent = settings.symbol;
+  workspaceUI?.refresh();
   el('market-note').textContent = settings.demo ?
     'Simulated prices · for interaction testing only' :
     'Public ' + (settings.market === 'kraken' ? 'Kraken' :
@@ -221,6 +235,7 @@ function updateHeader() {
 
 function setPrice(price) {
   el('last-price').textContent = formatPrice(price);
+  workspaceUI?.setQuote(price);
   const first = chart.candles[0], last = chart.candles.at(-1);
   if (first && last && first.close > 0) {
     const change = 100 * (last.close - first.open) / first.open;
@@ -492,15 +507,20 @@ el('timeframe').addEventListener('change', () => {
   loadMarket();
 });
 
+function toggleIndicator(key) {
+  if (!['showEMA', 'showSMA', 'showBB', 'showRSI', 'logarithmic'].includes(key)) return;
+  settings[key] = !settings[key];
+  chart.setOptions({ [key]: settings[key] });
+  persist();
+  updateButtons();
+}
+
 for (const [id, key] of [
-  ['ema-toggle', 'showEMA'], ['sma-toggle', 'showSMA'], ['log-toggle', 'logarithmic']
+  ['ema-toggle', 'showEMA'], ['sma-toggle', 'showSMA'],
+  ['bb-toggle', 'showBB'], ['rsi-toggle', 'showRSI'],
+  ['log-toggle', 'logarithmic']
 ]) {
-  el(id).addEventListener('click', () => {
-    settings[key] = !settings[key];
-    chart.setOptions({ [key]: settings[key] });
-    persist();
-    updateButtons();
-  });
+  el(id).addEventListener('click', () => toggleIndicator(key));
 }
 el('line-tool').addEventListener('click', () => {
   chart.setTool(chart.tool === 'line' ? 'pan' : 'line');
@@ -557,4 +577,8 @@ window.addEventListener('beforeunload', () => {
   archive.close();
 });
 
+workspaceUI = mountWorkspace({
+  settings, chart, persist, loadMarket, validateSelection,
+  setIndicator: toggleIndicator
+});
 loadMarket();

@@ -49,5 +49,7 @@ jobs:
         if: always()
         with:
           name: bitcorn-liquidity-replay
-          path: bitcorn-liquidity-replay.png
+          path: |
+            bitcorn-liquidity-replay.png
+            bitcorn-open-terminal.png
           if-no-files-found: ignore

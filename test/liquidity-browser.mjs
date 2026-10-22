@@ -129,6 +129,48 @@ async function browserRetention() {
   return { removedOld, removedExcess, afterCap: limited.length, afterErase: afterDelete.length };
 }
 
+function exerciseWorkspace() {
+  const byId = (id) => document.getElementById(id);
+  const before = byId('star-current').getAttribute('aria-pressed');
+  byId('bb-toggle').click();
+  byId('rsi-toggle').click();
+  byId('watchlist-toggle').click();
+  const leftHidden = document.querySelector('.workspace').classList.contains('watchlist-collapsed');
+  byId('watchlist-toggle').click();
+  byId('depth-toggle').click();
+  const depthHidden = document.querySelector('.workspace').classList.contains('depth-collapsed');
+  byId('depth-toggle').click();
+  byId('star-current').click();
+  const removed = byId('star-current').getAttribute('aria-pressed');
+  byId('star-current').click();
+  const restored = byId('star-current').getAttribute('aria-pressed');
+
+  byId('command-open').click();
+  const opened = byId('command-dialog').open;
+  const search = byId('command-search');
+  search.value = 'verdigris';
+  search.dispatchEvent(new Event('input', { bubbles: true }));
+  const entries = [...document.querySelectorAll('.palette-result')];
+  const target = entries.find((node) => node.textContent.includes('Verdigris'));
+  if (!target) throw new Error('Theme command missing from palette');
+  target.click();
+  const paletteTheme = document.documentElement.dataset.theme;
+  const theme = byId('theme-select');
+  theme.value = 'synth';
+  theme.dispatchEvent(new Event('change', { bubbles: true }));
+  const canvas = byId('candle-chart');
+  const image = canvas.toDataURL('image/png');
+  return {
+    before, removed, restored, opened, paletteTheme,
+    theme: document.documentElement.dataset.theme,
+    bb: byId('bb-toggle').getAttribute('aria-pressed'),
+    rsi: byId('rsi-toggle').getAttribute('aria-pressed'),
+    leftHidden, depthHidden,
+    markets: byId('watchlist-items').children.length,
+    exportedCanvas: image.startsWith('data:image/png;base64,') && image.length > 1000
+  };
+}
+
 try {
   await until(async () => (await fetch('http://127.0.0.1:' + port)).ok, 8000);
   chrome = spawn(process.env.CHROME_BIN || 'google-chrome', [
@@ -160,6 +202,20 @@ try {
   });
   assert.equal(initial.live, 'true');
   assert.equal(initial.series, 'spot');
+  const controls = await evaluate('(' + exerciseWorkspace.toString() + ')()');
+  assert.equal(controls.before, 'true');
+  assert.equal(controls.removed, 'false');
+  assert.equal(controls.restored, 'true');
+  assert.equal(controls.opened, true);
+  assert.equal(controls.paletteTheme, 'verdigris');
+  assert.equal(controls.theme, 'synth');
+  assert.equal(controls.bb, 'true');
+  assert.equal(controls.rsi, 'true');
+  assert.equal(controls.leftHidden, true);
+  assert.equal(controls.depthHidden, true);
+  assert.ok(controls.markets > 0);
+  assert.ok(controls.exportedCanvas);
+  console.log('Open terminal controls: PASS ' + JSON.stringify(controls));
   assert.equal(await evaluate('(' + seedBrowserRows.toString() + ')()', true), 104);
 
   await send('Page.reload', { ignoreCache: true });
@@ -169,6 +225,9 @@ try {
   });
   assert.equal(restored.series, 'spot');
   assert.ok(restored.count >= 104);
+  assert.equal(await evaluate("document.documentElement.dataset.theme"), 'synth');
+  assert.equal(await evaluate("document.querySelector('#rsi-toggle').getAttribute('aria-pressed')"), 'true');
+  assert.equal(await evaluate("document.querySelector('#bb-toggle').getAttribute('aria-pressed')"), 'true');
 
   await evaluate("(() => { document.querySelector('#liquidity-replay').click(); const scrub = document.querySelector('#liquidity-scrubber'); scrub.value = '85'; scrub.dispatchEvent(new Event('input', { bubbles: true })); return true; })()");
   const replay = await view();
@@ -176,7 +235,7 @@ try {
   assert.equal(replay.live, 'false');
   assert.match(replay.time, /^Replay · /);
   assert.equal(await evaluate("document.querySelector('#liquidity-scrubber').value"), '85');
-  assert.match(await evaluate("document.querySelector('.bottom-bar').textContent"), /v0\.5/);
+  assert.match(await evaluate("document.querySelector('.bottom-bar').textContent"), /v0\.6/);
   // Play at 16×, verify cursor progression, and pause at the chosen sample.
   await evaluate("(() => { const speed = document.querySelector('#liquidity-speed'); speed.value = '16'; speed.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('#liquidity-play').click(); return true; })()");
   await until(async () => Number(await evaluate("document.querySelector('#liquidity-scrubber').value")) > 85, 3000);
@@ -189,6 +248,8 @@ try {
     format: 'png', captureBeyondViewport: false
   })).data;
   await writeFile('bitcorn-liquidity-replay.png', Buffer.from(screenshot, 'base64'));
+  await writeFile('bitcorn-open-terminal.png', Buffer.from(screenshot, 'base64'));
+
 
   await evaluate("document.querySelector('#liquidity-live').click()");
   assert.equal((await view()).live, 'true');
@@ -214,6 +275,27 @@ try {
   const retention = await evaluate('(' + browserRetention.toString() + ')()', true);
   assert.equal(retention.afterCap, 8);
   assert.equal(retention.afterErase, 0);
+
+  const marketJump = await evaluate("(() => {" +
+    " document.dispatchEvent(new KeyboardEvent('keydown', {key:'k', ctrlKey:true, bubbles:true}));" +
+    " if (!document.querySelector('#command-dialog').open) throw Error('Command shortcut failed');" +
+    " const input=document.querySelector('#command-search'); input.value='ETHUSDT';" +
+    " input.dispatchEvent(new Event('input',{bubbles:true}));" +
+    " const row=[...document.querySelectorAll('.palette-result')].find(e =>" +
+    " e.querySelector('.palette-result-title')?.textContent === 'ETH / USDT' &&" +
+    " e.querySelector('.palette-result-detail')?.textContent.includes('Binance'));" +
+    " if (!row) throw Error('ETH market command missing'); row.click();" +
+    " const opened=document.querySelector('#symbol').value;" +
+    " document.querySelector('#watchlist-starred').click();" +
+    " const back=[...document.querySelectorAll('.watch-item-open')].find(e =>" +
+    " e.getAttribute('aria-label')?.includes('BTC / USDT'));" +
+    " if (!back) throw Error('Pinned BTC shortcut missing'); back.click();" +
+    " return {opened, returned:document.querySelector('#symbol').value, dialogClosed: !document.querySelector('#command-dialog').open};" +
+    "})()");
+  assert.equal(marketJump.opened, 'ETHUSDT');
+  assert.equal(marketJump.returned, 'BTCUSDT');
+  assert.equal(marketJump.dialogClosed, true);
+  console.log('Command market jump: PASS ' + JSON.stringify(marketJump));
 
   console.log('Liquidity IndexedDB smoke: PASS ' + JSON.stringify({
     initial: initial.count, restored: restored.count,

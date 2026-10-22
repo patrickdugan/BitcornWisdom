@@ -4,7 +4,7 @@ No measured browser FPS or per-frame latency numbers are claimed yet. Unit tests
 
 Benchmark Chromium and Firefox at 1,000, 10,000 and 100,000 synthetic bars. Fix viewport to 1200×700, then compare first draw, drag/zoom FPS, main-thread long tasks, memory, and devicePixelRatio 1x versus 2x. Record performance before choosing WebGL.
 
-Canvas currently renders only visible candles based on width/barWidth. EMA/SMA recompute from the full loaded array on redraw, which should be cached incrementally before scaling to 100k bars. Handle missing trading periods and optimize live indicator caching before interpreting any 100k-bar benchmark as a production-capable history test.
+Canvas currently renders only visible candles based on width/barWidth. Since v0.6, EMA/SMA, Bollinger and RSI arrays are cached across pan, hover, and zoom redraws, then invalidated when OHLCV changes. Indicator recalculation still scales with loaded bar count and needs timing measurements before raising the 8k chart cap. Handle missing trading periods and optimize live indicator caching before interpreting any 100k-bar benchmark as a production-capable history test.
 
 
 ## IndexedDB replay budget

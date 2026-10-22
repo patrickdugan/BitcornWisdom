@@ -30,7 +30,7 @@ createServer(async (request, response) => {
     return;
   }
   // Serve only public application assets; never expose .git or repository files.
-  if (!(pathname === '/' || pathname === '/index.html' || pathname === '/styles.css' ||
+  if (!(pathname === '/' || pathname === '/index.html' || pathname === '/styles.css' || pathname === '/favicon.svg' ||
     /^\/src\/[a-z-]+\.js$/.test(pathname))) {
     response.writeHead(404).end('Not found');
     return;

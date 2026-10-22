@@ -1,9 +1,9 @@
 {
   "name": "bitcornwisdom",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "Dependency-free BitcoinWisdom-inspired market terminal",
+  "description": "Open-source, keyboard-first crypto charting workspace with custom Canvas charts",
   "engines": {
     "node": ">=20"
   },
@@ -11,7 +11,7 @@
     "start": "node server.mjs",
     "dev": "node server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check src/main.js && node --check src/chart.js && node --check src/binance.js && node --check src/core.js && node --check src/indicators.js && node --check src/heatmap.js && node --check src/liquidity-archive.js && node --check src/demo.js && node --check src/realtime.js && node --check src/orderbook.js && node --check src/kraken.js && node --check src/coinbase.js && npm test",
+    "check": "node --check server.mjs && node --check src/main.js && node --check src/chart.js && node --check src/workspace.js && node --check src/workspace-ui.js && node --check src/binance.js && node --check src/core.js && node --check src/indicators.js && node --check src/heatmap.js && node --check src/liquidity-archive.js && node --check src/demo.js && node --check src/realtime.js && node --check src/orderbook.js && node --check src/kraken.js && node --check src/coinbase.js && npm test",
     "smoke": "node test/browser-smoke.mjs",
     "probe:live": "node test/live-probe.mjs",
     "browser:live": "node test/live-browser.mjs",

@@ -77,6 +77,7 @@ test('validation rejects malformed, crossing and unbounded depth payloads', () =
 test('Binance 2026 routed feeds separate market and public diff-depth', () => {
   assert.match(streamUrl('futures', 'BTCUSDT', '5m'), /\/market\/stream\?/);
   assert.doesNotMatch(streamUrl('futures', 'BTCUSDT', '5m'), /@depth/);
+  assert.match(streamUrl('futures', 'BTCUSDT', '5m'), /@aggTrade/);
   assert.match(depthStreamUrl('futures', 'BTCUSDT'), /\/public\/ws\/btcusdt@depth@100ms/);
   assert.match(depthStreamUrl('spot', 'BTCUSDT'), /data-stream.binance.vision\/ws/);
 });

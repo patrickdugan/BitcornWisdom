@@ -147,6 +147,10 @@ try {
   assert.equal(replay.replay, 'true');
   assert.equal(replay.live, 'false');
   assert.match(replay.time, /^Replay · /);
+  assert.equal(await evaluate("document.querySelector('#liquidity-scrubber').value"), '85');
+  assert.match(await evaluate("document.querySelector('.bottom-bar').textContent"), /v0\.5/);
+  // Let the scheduled Canvas requestAnimationFrame paint the requested replay cursor.
+  await sleep(250);
 
   const screenshot = (await send('Page.captureScreenshot', {
     format: 'png', captureBeyondViewport: false

@@ -159,10 +159,10 @@ function exerciseDrawings() {
   const key = 'bitcornwisdom:drawings:v1:spot:BTCUSDT:5m';
   const saved = () => JSON.parse(localStorage.getItem(key) || '[]');
 
-  choose('horizontal'); click(.40, 142);
-  choose('vertical'); click(.54, 205);
-  choose('fib'); click(.40, 235); click(.68, 320);
-  choose('line'); click(.34, 355); click(.61, 380);
+  choose('horizontal'); click(.40, 110);
+  choose('vertical'); click(.54, 160);
+  choose('fib'); click(.40, 180); click(.68, 240);
+  choose('line'); click(.34, 210); click(.61, 260);
   if (el('drawing-count').textContent !== '4') throw new Error('Four annotations were not saved: ' + JSON.stringify({count:el('drawing-count').textContent, types:saved().map(d=>d.type), width:rect.width, height:rect.height, selected:select.value, x:point(.61,380).clientX}));
   const before = saved();
   if (before.map((d) => d.type).join(',') !== 'horizontal,vertical,fib,line') {
@@ -170,9 +170,9 @@ function exerciseDrawings() {
   }
 
   choose('select');
-  emit('pointerdown', .75, 142);
-  emit('pointermove', .75, 165);
-  emit('pointerup', .75, 165);
+  emit('pointerdown', .75, 110);
+  emit('pointermove', .75, 135);
+  emit('pointerup', .75, 135);
   const moved = saved();
   if (Math.abs(moved[0].a.price - before[0].a.price) < .01)
     throw new Error('Horizontal price-level edit was not stored');
@@ -181,8 +181,8 @@ function exerciseDrawings() {
   if (Math.abs(undone[0].a.price - before[0].a.price) > 1e-9)
     throw new Error('Drawing undo did not restore price');
 
-  emit('pointerdown', .75, 142);
-  emit('pointerup', .75, 142);
+  emit('pointerdown', .75, 110);
+  emit('pointerup', .75, 110);
   el('delete-drawing').click();
   if (saved().length !== 3) throw new Error('Delete did not remove selected annotation');
   el('undo-tool').click();

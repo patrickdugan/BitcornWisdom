@@ -1,8 +1,14 @@
-# v0.5 feature matrix
+# v0.6 feature matrix
 
 | Feature | Implementation | Follow-up |
 | --- | --- | --- |
 | Candles, volume, pan/zoom | Canvas2D chart | 100k-bar benchmarks |
+| Themes | Noir, Afterhours, Verdigris with matching Canvas palettes | Theme export/import |
+| Market navigation | Command deck, local favorites, discover shortcuts | Exchange-wide symbol discovery |
+| Workspace panels | Collapsible watchlist and order-book; responsive drawer | Multi-chart layouts |
+| Chart export | Client-side PNG snapshot | Annotation layers and sharing |
+| Bollinger 20/2σ | Price overlay plus basis | Configurable parameters |
+| RSI 14 | Independent oscillator strip under volume | More studies |
 | Older chart candles | Cursor-paged Binance/Coinbase REST, up to 8,000 bars | Kraken venue-side limit; gap handling |
 | EMA/SMA, log scale | Yes | Further overlays |
 | RSI | Library calculation | RSI subplot |

@@ -1,4 +1,4 @@
-# Architecture v0.5
+# Architecture v0.6
 
 Binance Spot/Futures REST history and WS kline/trades, Kraken REST OHLC / WS v2, and Coinbase Exchange REST candles / public WebSocket matches all supply a normalized candle/trade model to the dependency-free Canvas2D chart.
 
@@ -9,6 +9,10 @@ Kraken L2 uses the 25-level WebSocket v2 book subscription. Price and quantity s
 Coinbase book initialization consumes a public `level2_batch` snapshot and then applies absolute-size changes on the same ordered socket. The browser retains up to 1,000 nearest levels per side. Trade messages extend the current OHLCV bar, with `heartbeat.last_trade_id` compared against observed match IDs to request a REST refresh after persistent gaps. Coinbase does not offer an L2 CRC32 equivalent.
 
 All book feeds drive the 10-by-10 bid/ask ladder and a sampled heatmap. Near-mid liquidity is binned at about one-second intervals into at most 200 bands and 160 time columns.
+
+The v0.6 market desk adds a framework-free workspace layer: src/workspace.js validates themes and favorites and defines command-search scoring and Canvas palettes, while src/workspace-ui.js implements the local watchlist, command palette, panel visibility, theme persistence and PNG chart export. Market shortcuts are scoped by venue/symbol, and only the active market opens public feed subscriptions.
+
+The Canvas2D renderer now applies theme palettes directly while rendering and caches its EMA, SMA, RSI and Bollinger series until OHLCV mutates. RSI reserves a separate strip below volume. Themes remain dark to keep market colors readable.
 
 The chart consumes normalized UTC millisecond OHLCV and uses the same coordinate transform for candles, indicators, cursor and persisted line drawings. It triggers older-history callbacks when viewport navigation approaches the earliest stored candle. Binance uses an oldest-exclusive REST endTime cursor, while Coinbase requests bounded time ranges. Inserting older bars at the front preserves x positions of already visible candles. Up to 8,000 candles are retained in browser memory, and session generation guards prevent stale historical fetches from changing a newly selected market. One active market session owns its REST controller and sockets. Market switching closes prior feeds and blocks stale updates.
 

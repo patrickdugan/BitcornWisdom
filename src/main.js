@@ -313,6 +313,7 @@ function createBookRow(side) {
   return row;
 }
 function renderBookSide(container, levels, side, maxQty) {
+  if (!container.children.length) container.replaceChildren();
   for (let i = 0; i < levels.length; i++) {
     const row = container.children[i] || createBookRow(side);
     const [price, quantity] = levels[i];

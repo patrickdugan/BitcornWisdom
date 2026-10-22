@@ -30,7 +30,8 @@ export function checkMarket(market, symbol, interval) {
 export function streamUrl(market, symbol, interval) {
   checkMarket(market, symbol, interval);
   const s = symbol.toLowerCase();
-  return HOSTS[market].marketWs + [s + '@kline_' + interval, s + '@trade'].join('/');
+  return HOSTS[market].marketWs +
+    [s + '@kline_' + interval, s + (market === 'futures' ? '@aggTrade' : '@trade')].join('/');
 }
 
 export function depthStreamUrl(market, symbol) {
@@ -83,7 +84,7 @@ export class BinanceStream {
         const parsed = JSON.parse(data);
         const event = parsed.data || parsed;
         if (event.e === 'kline') callbacks.onCandle?.(parseKlineEvent(event));
-        else if (event.e === 'trade') callbacks.onTrade?.(parseTrade(event));
+        else if (event.e === 'trade' || event.e === 'aggTrade') callbacks.onTrade?.(parseTrade(event));
       }
     }, factory);
   }

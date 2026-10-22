@@ -141,10 +141,22 @@ test('browser workspace saves, resizes, imports, rejects and restores', { timeou
 
     const shot = await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
     await writeFile('bitcorn-grid-workspace.png', Buffer.from(shot.data,'base64'));
+    const priorDocument = await evaluate("performance.timeOrigin");
     await send('Page.reload',{ignoreCache:true});
-    await until(async () => (await evaluate("document.querySelectorAll('.grid-cell').length")) === 2);
-    assert.equal(await evaluate("document.documentElement.dataset.theme"),'synth');
-    assert.equal(await evaluate("document.querySelector('#grid-presets option:last-child').textContent"),'Imported desk');
+    // CDP Page.reload returns before the new document is ready. The old
+    // document already has two cells, so count alone is a false-positive.
+    const restored = await until(async () => {
+      const state = await evaluate(`(() => ({
+        epoch:performance.timeOrigin, ready:document.readyState,
+        cells:document.querySelectorAll('.grid-cell').length,
+        theme:document.documentElement.dataset.theme,
+        preset:document.querySelector('#grid-presets option:last-child')?.textContent
+      }))()`);
+      return state.epoch !== priorDocument &&
+        state.ready === 'complete' && state.cells === 2 ? state : false;
+    });
+    assert.equal(restored.theme, 'synth');
+    assert.equal(restored.preset, 'Imported desk');
   } finally {
     ws?.close();
     chrome?.kill();

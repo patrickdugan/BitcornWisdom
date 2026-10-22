@@ -80,7 +80,8 @@ test('browser workspace saves, resizes, imports, rejects and restores', { timeou
     await until(async () => await evaluate("document.querySelectorAll('.grid-cell').length===4"));
     const position = await evaluate(`(() => {
       const r=document.querySelector('.grid-divider--col').getBoundingClientRect();
-      return {x:r.x+r.width/2,y:r.y+r.height/2};
+      // Avoid the horizontal divider crossing the vertical handle at its center.
+      return {x:r.x+r.width/2,y:r.y+r.height/4};
     })()`);
     await send('Input.dispatchMouseEvent', { type:'mouseMoved', x:position.x, y:position.y, button:'none' });
     await send('Input.dispatchMouseEvent', { type:'mousePressed', x:position.x, y:position.y, button:'left', clickCount:1 });

@@ -1,4 +1,4 @@
-# Architecture v0.4
+# Architecture v0.5
 
 Binance Spot/Futures REST history and WS kline/trades, Kraken REST OHLC / WS v2, and Coinbase Exchange REST candles / public WebSocket matches all supply a normalized candle/trade model to the dependency-free Canvas2D chart.
 
@@ -15,3 +15,16 @@ The chart consumes normalized UTC millisecond OHLCV and uses the same coordinate
 A future backend is justified for historical L2 retention, replay or multi-venue aggregation. At present all market access is public, read-only and direct from the browser, with no credentials or account state.
 
 Unit tests cover numerical transforms, parsing, order-book snapshot overlap, sequence gaps, Kraken official CRC32 sample, Coinbase snapshot/update and heartbeat gap handling, candle upserts, depth binning, paged REST cursors, viewport preservation, and cancellation races. The offline browser smoke is distinct from a live endpoint probe, where regional HTTP errors are recorded.
+
+
+## Local liquidity recorder and replay
+
+Each live verified order book produces a sampled, sparse price-binned column no more than about once per second. A sample includes the local observation timestamp, optional market event timestamp, venue/source identity, midprice and at most 200 approximate base-quantity bins within ±1% of the observed price.
+
+The LiquidityArchive implementation uses browser IndexedDB, a compound (series, timestamp) key, and an absolute-time secondary index for retention pruning. Archive series include demo/live, exchange and symbol, independent of the candle interval. The UI loads the latest 6,000 columns for replay. IndexedDB targets a total cap of 12,000 across all stored markets, removes rows older than 24 hours, and prunes after every 64 writes and during restoration. The browser controls any eventual eviction or storage denial.
+
+The LiquidityHeatmap object owns an independent replay cursor by timestamp. It renders at most 160 columns around the cursor, retains its latest live samples while replay is paused, and marks gaps over four seconds without drawing a connecting price line. Seeking, playback speed, Live and Erase affect the sample timeline; the price chart, trade tape and order-book ladder remain live.
+
+The archive stores *binned snapshots*, not lossless diff-depth messages. Reconstructing historical book state outside observed samples would require a continuously running separate recorder and event-log storage. No such background collector exists. The UI explicitly labels this as local, sampled depth.
+
+Use npm run smoke:archive for Chromium IndexedDB persistence, timeline seeking, playback, venue isolation, erase, expiry and global-cap checks in a disposable profile.

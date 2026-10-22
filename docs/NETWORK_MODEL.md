@@ -58,3 +58,10 @@ Sources:
 ## Endpoint probe
 
 On October 22, 2026, GitHub Actions reported eight successful public endpoints: Binance Spot REST candles/WS trades, Binance Futures WS aggTrade/diff-depth, Kraken REST OHLC and a CRC-valid Kraken book, plus Coinbase REST candles and a Level 2 WebSocket snapshot. Binance Futures REST responded HTTP 451 from the runner. These observations describe that network only and do not guarantee browser reachability. The raw report is an optional CI artifact.
+
+
+## Locally recorded depth, version 0.5
+
+BitcornWisdom records one price-binned column from whichever validated order-book adapter is active. Samples include local observed-at time, optional exchange event time, source type and sparse depth within ±1% of the price. The browser IndexedDB archive is independent of the REST candle history and WebSocket market message formats above. It restores only data previously observed by this browser while the chart was active.
+
+Full raw L2 event replay and reconstruction across periods when the browser is closed require a separate, persistent collector; this client does not claim such coverage. See LIQUIDITY_REPLAY.md for sample format, retention, gap rendering and replay controls.

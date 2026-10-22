@@ -1,6 +1,6 @@
 # Next milestones
 
-Delivered by v0.4: standalone Canvas2D terminal; market/timeframe controls; persisted trend lines; Binance Spot and USDⓈ-M candle/trade adapters; U/u/pu synchronized 1,000-level bounded Binance order books; Kraken spot OHLC, trades and CRC32-verified 25-level book; Coinbase Exchange candles, trade tape, heartbeat gap detection and bounded snapshot-fed L2; Binance/Coinbase older-candle pagination to an 8k local cap; bin-limited heatmap; offline demo; tests; live network probe.
+Delivered by v0.5: standalone Canvas2D terminal; market/timeframe controls; persisted trend lines; Binance Spot and USDⓈ-M candle/trade adapters; U/u/pu synchronized 1,000-level bounded Binance order books; Kraken spot OHLC, trades and CRC32-verified 25-level book; Coinbase Exchange candles, trade tape, heartbeat gap detection and bounded snapshot-fed L2; Binance/Coinbase older-candle pagination to an 8k local cap; bin-limited heatmap; persisted and replayable IndexedDB sampled depth with retention, archive separation and erase; offline demo; tests; live network probe.
 
 Next engineering tasks:
 
@@ -11,4 +11,4 @@ Next engineering tasks:
 5. Log and linear renderer benchmarking at 1k, 10k, 100k candles.
 6. RSI, MACD, Bollinger indicators; editable drawing geometry.
 
-Later: durable historical L2 capture, replayable liquidity heatmaps and cross-venue aggregation.
+Later: lossless historical raw L2 recording and event replay, portable export/import, and cross-venue aggregation. The current IndexedDB history stores the bins this browser observed while the chart was open.

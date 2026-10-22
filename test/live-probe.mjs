@@ -65,6 +65,8 @@ const report = await Promise.all([
     (value) => { if (!Array.isArray(value) || !Array.isArray(value[0])) throw Error('Unexpected candles'); }),
   rest('Binance futures candles', 'https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1m&limit=2',
     (value) => { if (!Array.isArray(value) || !Array.isArray(value[0])) throw Error('Unexpected candles'); }),
+  rest('Coinbase Exchange candles', 'https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=300',
+    (value) => { if (!Array.isArray(value) || !Array.isArray(value[0])) throw Error('Unexpected Coinbase OHLC'); }),
   rest('Kraken spot candles', 'https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=5',
     (value) => { if (value.error?.length || !value.result) throw Error('Unexpected Kraken OHLC response'); }),
   stream('Binance spot trades', 'wss://data-stream.binance.vision/ws/btcusdt@trade', {
@@ -75,6 +77,11 @@ const report = await Promise.all([
   }),
   stream('Binance futures sequenced depth', 'wss://fstream.binance.com/public/ws/btcusdt@depth@100ms', {
     match: (p) => p.e === 'depthUpdate' && Number.isSafeInteger(p.u)
+  }),
+  stream('Coinbase Exchange L2 snapshot', 'wss://ws-feed.exchange.coinbase.com', {
+    subscribe: { type: 'subscribe', product_ids: ['BTC-USD'], channels: ['level2_batch'] },
+    match: (p) => p.type === 'snapshot' && p.product_id === 'BTC-USD' &&
+      Array.isArray(p.bids) && Array.isArray(p.asks) && p.bids.length > 0
   }),
   stream('Kraken checksum-verified book', 'wss://ws.kraken.com/v2', {
     subscribe: { method: 'subscribe',

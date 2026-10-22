@@ -1,5 +1,6 @@
 import { BinanceStream, BinanceDepthStream, checkMarket, fetchCandles } from './binance.js';
 import { KrakenStream, checkKraken, fetchKrakenCandles, KRAKEN_INTERVALS } from './kraken.js';
+import { CoinbaseStream, checkCoinbase, fetchCoinbaseCandles, COINBASE_INTERVALS } from './coinbase.js';
 import { CandleChart } from './chart.js';
 import { formatCompact, formatPrice, INTERVALS } from './core.js';
 import { makeDemoCandles, makeDemoDepth, nextDemoCandle } from './demo.js';
@@ -39,12 +40,16 @@ catch { settings.market = 'spot'; settings.symbol = 'BTCUSDT'; settings.interval
 
 function validateSelection(market, symbol, interval) {
   if (market === 'kraken') checkKraken(symbol, interval);
+  else if (market === 'coinbase') checkCoinbase(symbol, interval);
   else checkMarket(market, symbol, interval);
 }
 
 function updateTimeframeOptions() {
-  for (const option of el('timeframe').options)
-    option.disabled = settings.market === 'kraken' && !Object.hasOwn(KRAKEN_INTERVALS, option.value);
+  for (const option of el('timeframe').options) {
+    option.disabled = settings.market === 'kraken' ?
+      !Object.hasOwn(KRAKEN_INTERVALS, option.value) : settings.market === 'coinbase' ?
+      !Object.hasOwn(COINBASE_INTERVALS, option.value) : false;
+  }
 }
 
 const chart = new CandleChart(el('candle-chart'), {
@@ -59,6 +64,7 @@ let session = 0;
 let stream = null;
 let depthStream = null;
 let controller = null;
+let resyncController = null;
 let demoTimer = null;
 let lastBookRender = 0;
 let lastTradeRender = 0;
@@ -115,12 +121,14 @@ function updateHeader() {
   const base = quote ? settings.symbol.slice(0, -quote.length) : settings.symbol;
   el('pair-title').textContent = quote ? base + ' / ' + quote : settings.symbol;
   const venue = settings.market === 'kraken' ? 'KRAKEN SPOT' :
+    settings.market === 'coinbase' ? 'COINBASE EXCHANGE' :
     (settings.market === 'spot' ? 'BINANCE SPOT' : 'BINANCE USDⓈ-M');
   el('market-subtitle').textContent = venue + ' · UTC' + (settings.demo ? ' · DEMO DATA' : '');
   el('book-pair').textContent = settings.symbol;
   el('market-note').textContent = settings.demo ?
     'Simulated prices · for interaction testing only' :
-    'Public ' + (settings.market === 'kraken' ? 'Kraken' : 'Binance') + ' feeds · read only';
+    'Public ' + (settings.market === 'kraken' ? 'Kraken' :
+      settings.market === 'coinbase' ? 'Coinbase Exchange' : 'Binance') + ' feeds · read only';
 }
 
 function setPrice(price) {
@@ -180,6 +188,7 @@ function renderBook(book) {
     (100 * spread / book.asks[0][0]).toFixed(4) + '%)';
   el('book-status').textContent = book.source === 'checksum-verified' ? 'Kraken checksum-verified L2 · 25 levels' :
     book.source === 'sequenced-depth' ? 'Binance synchronized L2 · 1,000 levels max' :
+    book.source === 'coinbase-level2' ? 'Coinbase snapshot-fed L2 · 1,000 levels max' :
     'Offline sample book';
 }
 
@@ -199,6 +208,7 @@ function addTrade(trade) {
 function stopFeed() {
   session += 1;
   if (controller) { controller.abort(); controller = null; }
+  if (resyncController) { resyncController.abort(); resyncController = null; }
   if (stream) { stream.close(); stream = null; }
   if (depthStream) { depthStream.close(); depthStream = null; }
   if (demoTimer !== null) { clearInterval(demoTimer); demoTimer = null; }
@@ -254,6 +264,8 @@ async function loadMarket() {
   try {
     const data = settings.market === 'kraken' ?
       await fetchKrakenCandles(settings.symbol, settings.interval, controller.signal) :
+      settings.market === 'coinbase' ?
+      await fetchCoinbaseCandles(settings.symbol, settings.interval, controller.signal) :
       await fetchCandles(settings.market, settings.symbol, settings.interval, controller.signal);
     if (session !== current) return;
     if (data.length === 0) throw new Error('Exchange returned no candles');
@@ -287,6 +299,29 @@ async function loadMarket() {
     };
     if (settings.market === 'kraken') {
       stream = new KrakenStream(settings.symbol, settings.interval, callbacks).start();
+    } else if (settings.market === 'coinbase') {
+      callbacks.onResyncHistory = async () => {
+        if (session !== current) return;
+        if (resyncController) resyncController.abort();
+        const active = new AbortController();
+        resyncController = active;
+        try {
+          const fresh = await fetchCoinbaseCandles(settings.symbol, settings.interval, active.signal);
+          if (session !== current || active.signal.aborted) return;
+          if (fresh.length) {
+            chart.setCandles(fresh, settings.interval, false);
+            stream?.seedHistory(fresh);
+            setPrice(fresh.at(-1).close);
+          }
+        } catch (error) {
+          if (!active.signal.aborted) console.warn('Coinbase candle refresh failed', error);
+        } finally {
+          if (resyncController === active) resyncController = null;
+        }
+      };
+      stream = new CoinbaseStream(settings.symbol, settings.interval, callbacks);
+      stream.seedHistory(data);
+      stream.start();
     } else {
       stream = new BinanceStream(settings.market, settings.symbol, settings.interval, callbacks).start();
       depthStream = new BinanceDepthStream(settings.market, settings.symbol, callbacks).start();
@@ -313,12 +348,15 @@ el('market-form').addEventListener('submit', (event) => {
 });
 el('market').addEventListener('change', () => {
   const nextMarket = el('market').value;
-  if (nextMarket === 'kraken' && settings.market !== 'kraken' && settings.symbol === 'BTCUSDT')
+  if (['kraken', 'coinbase'].includes(nextMarket) &&
+      !['kraken', 'coinbase'].includes(settings.market) && settings.symbol === 'BTCUSDT')
     settings.symbol = 'BTCUSD';
-  else if (nextMarket !== 'kraken' && settings.market === 'kraken' && settings.symbol === 'BTCUSD')
+  else if (['spot', 'futures'].includes(nextMarket) &&
+      ['kraken', 'coinbase'].includes(settings.market) && settings.symbol === 'BTCUSD')
     settings.symbol = 'BTCUSDT';
   settings.market = nextMarket;
-  if (settings.market === 'kraken' && !Object.hasOwn(KRAKEN_INTERVALS, settings.interval))
+  if ((settings.market === 'kraken' && !Object.hasOwn(KRAKEN_INTERVALS, settings.interval)) ||
+      (settings.market === 'coinbase' && !Object.hasOwn(COINBASE_INTERVALS, settings.interval)))
     settings.interval = '5m';
   loadMarket();
 });

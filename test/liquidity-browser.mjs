@@ -163,7 +163,7 @@ function exerciseDrawings() {
   choose('vertical'); click(.54, 205);
   choose('fib'); click(.40, 235); click(.68, 320);
   choose('line'); click(.34, 355); click(.61, 380);
-  if (el('drawing-count').textContent !== '4') throw new Error('Four annotations were not saved');
+  if (el('drawing-count').textContent !== '4') throw new Error('Four annotations were not saved: ' + JSON.stringify({count:el('drawing-count').textContent, types:saved().map(d=>d.type), width:rect.width, height:rect.height, selected:select.value, x:point(.61,380).clientX}));
   const before = saved();
   if (before.map((d) => d.type).join(',') !== 'horizontal,vertical,fib,line') {
     throw new Error('Unexpected drawing schema: ' + before.map((d) => d.type));

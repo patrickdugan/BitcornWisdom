@@ -68,6 +68,19 @@ function syncRange(source) {
   });
 }
 
+function demoCandles(selection) {
+  // The offline screen is synthetic, with distinct price magnitudes by asset.
+  const base = selection.symbol.startsWith('ETH') ? 3200 :
+    selection.symbol.startsWith('SOL') ? 160 :
+    selection.symbol.startsWith('BTC') ? 72000 : 400;
+  const rows = makeDemoCandles(selection.interval, 900);
+  const scale = base / 72000;
+  return rows.map((row) => ({
+    time: row.time, open: row.open * scale, high: row.high * scale,
+    low: row.low * scale, close: row.close * scale, volume: row.volume
+  }));
+}
+
 function marketCandles(c, signal) {
   const { market, symbol, interval } = c.selection;
   if (market === 'kraken') return fetchKrakenCandles(symbol, interval, signal);
@@ -111,7 +124,7 @@ async function loadCell(cell) {
   setCellStatus(cell, 'LOADING HISTORY', 'loading');
 
   if (layout.demo) {
-    const candles = makeDemoCandles(selection.interval, 900);
+    const candles = demoCandles(selection);
     if (version !== cell.generation) return;
     cell.chart.setCandles(candles, selection.interval);
     cell.priceText.textContent = formatPrice(candles.at(-1).close);

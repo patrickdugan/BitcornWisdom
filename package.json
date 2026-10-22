@@ -21,7 +21,7 @@
     "smoke:motion": "node test/market-motion-browser.mjs",
     "smoke:embed": "node test/embed-browser.mjs",
     "smoke:cross-origin": "node test/embed-cross-origin.mjs",
-    "relay:demo": "node examples/relay-node.mjs",
+    "relay:kraken": "node examples/relay-node.mjs",
     "browser:embed-live": "node test/embed-live.mjs"
   },
   "dependencies": {},

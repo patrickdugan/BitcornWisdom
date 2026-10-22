@@ -81,6 +81,12 @@ jobs:
         run: npm run browser:live
         continue-on-error: true
         timeout-minutes: 3
+      - name: Exercise embedded live candle feed from hosted Chrome
+        env:
+          BITCORN_EMBED_LIVE_URL: "${{ steps.deploy.outputs.page_url }}embed.html?instrument=BTC-USD-SPOT&interval=1m&preferred=kraken"
+        run: npm run browser:embed-live
+        continue-on-error: true
+        timeout-minutes: 2
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -90,4 +96,6 @@ jobs:
             kraken-live-preview.png
             coinbase-live-preview.png
             binance-spot-live-preview.png
+            bitcorn-embed-live.png
+            embed-live-report.json
           if-no-files-found: ignore

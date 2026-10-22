@@ -60,7 +60,7 @@ The source files are arranged by task:
 
 In an October 22, 2026 GitHub Actions connectivity run, **six of seven** public exchange endpoints responded with valid data: Binance Spot REST candles and trades, Binance Futures aggregate trades and sequenced depth, Kraken REST candles and a CRC32-verified Kraken WebSocket book snapshot. Binance Futures REST candles returned **HTTP 451** from the runner's region. Live tests demonstrate network reachability from that host; browser CORS and other regional conditions can differ.
 
-All 29 deterministic tests and the local-demo Chrome smoke passed. Additional browser and longer-duration depth soak checks remain on the roadmap.
+All 29 deterministic tests and the local-demo Chrome smoke passed. A second live Chromium integration check also loaded real candles and reached **LIVE** status with a **Kraken checksum-verified L2 book** and a **Binance Spot synchronized L2 book**; both showed 10 bid and 10 ask rows without page errors. Those browser screenshots and the machine-readable report are available in [the October 22 CI run](https://github.com/patrickdugan/BitcornWisdom/actions/runs/39749665288). Longer-duration depth soak and additional regional browsers remain on the roadmap.
 
 See docs/NETWORK_MODEL.md, docs/ARCHITECTURE.md, docs/FEATURE_MATRIX.md and docs/MVP_SPEC.md for protocol notes, build decisions and limitations.
 

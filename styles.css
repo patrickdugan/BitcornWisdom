@@ -376,3 +376,23 @@ input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
   .palette-footer { gap: 9px; font-size: 9px; }
   .palette-meta { display: none; }
 }
+
+/* v0.10: preserved book DOM nodes allow real CSS width interpolation. */
+.book-row .bar{transition:width 175ms ease-out}
+.trade-row--new{animation:market-trade-arrive 230ms ease-out both}
+@keyframes market-trade-arrive{
+  from{opacity:.2;transform:translateY(-5px);background:var(--elevated)}
+  to{opacity:1;transform:translateY(0);background:transparent}
+}
+.market-motion-stats{
+  color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font:9px ui-monospace,Consolas,monospace;max-width:340px
+}
+@media(max-width:1080px){.market-motion-stats{display:none}}
+@media(prefers-reduced-motion:reduce){
+  .book-row .bar{transition:none}
+  .trade-row--new{animation:none}
+}
+
+html[data-motion="off"] .book-row .bar{transition:none}
+html[data-motion="off"] .trade-row--new{animation:none}

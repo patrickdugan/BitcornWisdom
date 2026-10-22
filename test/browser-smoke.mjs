@@ -35,7 +35,7 @@ try {
   assert.match(result.stdout, /id="connection-label"[^>]*>OFFLINE DEMO</);
   assert.match(result.stdout, /id="last-price"[^>]*>[0-9,]+\.[0-9]{2}</);
   assert.match(result.stdout, /class="book-row bid"/);
-  assert.match(result.stdout, /class="trade-row (buy|sell)"/);
+  assert.match(result.stdout, /class="trade-row (buy|sell)(?: [^"]+)?"/);
   console.log('Chrome demo hydration and render state: PASS');
 } finally {
   server.kill();

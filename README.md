@@ -7,6 +7,8 @@
 
 Inspired by the feel of the original BitcoinWisdom charts. Built with a homegrown Canvas2D renderer, native browser JavaScript, and **zero npm dependencies**. No TradingView widget, Lightweight Charts package, Pine Script, broker login, or API key.
 
+**Live market motion (v0.10).** The classic desk now paints an animated cumulative bid/ask depth profile next to the price scale, a trade-responsive market marker, and short transitions on the current candle. Order-book quantity bars animate in place and fresh trades enter with a subtle flash. The `Motion` button controls visual transitions; operating-system reduced-motion settings disable them. A small footer readout shows observed Canvas draw p95, update-to-draw p95, and active frame rate from the local browser. Raw exchange candles, confirmed book snapshots and trade records always remain authoritative. The depth profile depends on the available L2 levels and the chart's visible price range. This renderer interpolates visuals for a fraction of a second; it never creates exchange observations.
+
 ## The open-market desk (v0.8)
 
 The classic workspace has a three-panel terminal layout with customizable themes and a local watchlist. The new [multi-chart desk](grid.html) opens one, two, or four independent market charts simultaneously, with optional crosshair and pan/zoom synchronization.
@@ -33,6 +35,7 @@ Open http://127.0.0.1:5173/ for public market feeds. Open http://127.0.0.1:5173/
     npm run check          # syntax checks and deterministic unit tests
     npm run smoke          # headless Chrome demo hydration
     npm run smoke:grid     # 1/2/4 chart offline grid hydration
+    npm run smoke:motion   # actual Chrome depth-pixel, rendering, motion preference and book-row test
     npm run smoke:archive  # IndexedDB, replay, workspace UI and drawing interactions
     npm run probe:live     # optional public exchange reachability
     npm run browser:live   # optional live Chrome integration
@@ -41,7 +44,7 @@ Static hosting also works: index.html uses relative asset paths, so the site can
 
 ### Multi-chart grids
 
-Open **http://127.0.0.1:5173/grid.html?demo=1&mode=4** to preview four charts offline, or remove `demo=1` for live public feeds. Each pane has its own venue, symbol, timeframe, candle chart, and WebSocket lifecycle. Switching layouts stops inactive chart subscriptions. Your layout choices persist in localStorage. Optional synchronized crosshairs mark the same candle timestamp across charts; synchronized zoom/pan follows approximate bar offsets and is most meaningful when the timeframes match. The classic single-chart workspace remains at `index.html`.
+Open **http://127.0.0.1:5173/grid.html?demo=1&mode=4** to preview four charts offline, or remove `demo=1` for live public feeds. Each pane has its own venue, symbol, timeframe, candle chart, and WebSocket lifecycle. Switching layouts stops inactive chart subscriptions. Your layout choices persist in localStorage. Optional synchronized crosshairs mark the same candle timestamp across charts; synchronized zoom/pan projects the viewport across candle intervals using UTC timestamps. The classic single-chart workspace remains at `index.html`.
 
 See [grid architecture](docs/MULTICHART.md) for guarantees and limits.
 

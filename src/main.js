@@ -22,7 +22,7 @@ function writeStored(key, value) {
 }
 
 const url = new URL(location.href);
-const previous = readStored(STORAGE_KEY, {});
+const previous = readStored(STORAGE_KEY, {}) || {};
 const settings = {
   market: url.searchParams.get('market') || previous.market || 'spot',
   symbol: (url.searchParams.get('symbol') || previous.symbol || 'BTCUSDT').toUpperCase(),
@@ -210,7 +210,6 @@ function startDemo(version) {
 }
 
 async function loadMarket() {
-  const version = session + 1;
   stopFeed();
   // stopFeed increments generation; use the resulting value.
   const current = session;

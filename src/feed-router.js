@@ -101,8 +101,9 @@ export class FeedRouter {
       const callbacks = {
         onHistory: rows => {
           if (!accepts()) return;
-          try { this.onHistory(normalizeHistory(rows), source); }
-          catch (error) { this.onError(error, source); }
+          // A malformed initial history must fail the whole candidate source,
+          // allowing the next eligible provider to take over.
+          this.onHistory(normalizeHistory(rows), source);
         },
         onCandle: row => {
           if (!accepts()) return;

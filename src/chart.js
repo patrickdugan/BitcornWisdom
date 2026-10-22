@@ -438,18 +438,29 @@ export class CandleChart {
       ctx.lineWidth = selected ? 1.8 : 1.35;
       ctx.strokeStyle = selected ? COLORS.last : COLORS.drawing;
       if (preview) ctx.setLineDash([5, 4]);
+      const shownLabels = [];
       for (const shape of shapes.lines) {
         ctx.beginPath();
         ctx.moveTo(shape.x1, shape.y1);
         ctx.lineTo(shape.x2, shape.y2);
         ctx.stroke();
         if (shape.label) {
-          const tx = Math.max(left + 4, Math.min(right - 97, shape.x2 - 94));
           const ty = Math.max(top + 10, Math.min(bottom - 10, shape.y1 - 7));
-          ctx.font = '10px ui-monospace, monospace';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = selected ? COLORS.last : COLORS.drawing;
-          ctx.fillText(shape.label + '  ' + formatPrice(shape.price), tx, ty);
+          // At low volatility seven fib labels can be <10 px apart.
+          // Preserve all level lines, but suppress colliding labels.
+          if (shownLabels.every((previous) => Math.abs(ty - previous) >= 15)) {
+            shownLabels.push(ty);
+            const caption = shape.label + '  ' + formatPrice(shape.price);
+            ctx.font = '10px ui-monospace, monospace';
+            ctx.textBaseline = 'middle';
+            const width = ctx.measureText(caption).width;
+            const tx = Math.max(left + 5, right - width - 12);
+            ctx.setLineDash([]);
+            ctx.fillStyle = COLORS.hoverBg;
+            ctx.fillRect(tx - 4, ty - 8, width + 8, 16);
+            ctx.fillStyle = selected ? COLORS.last : COLORS.drawing;
+            ctx.fillText(caption, tx, ty);
+          }
         }
       }
       if (selected || preview) {

@@ -55,3 +55,12 @@ jobs:
             bitcorn-open-terminal.png
             bitcorn-drawings.png
           if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bitcorn-multichart
+          path: |
+            bitcorn-grid-1.png
+            bitcorn-grid-2.png
+            bitcorn-grid-4.png
+          if-no-files-found: ignore

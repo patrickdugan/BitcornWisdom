@@ -18,6 +18,8 @@ jobs:
         timeout-minutes: 2
       - run: npm run smoke:motion
         timeout-minutes: 2
+      - run: npm run smoke:embed
+        timeout-minutes: 2
       - run: npm run smoke:archive
         timeout-minutes: 2
       - run: npm run probe:live
@@ -69,4 +71,5 @@ jobs:
             bitcorn-grid-4.png
             bitcorn-grid-workspace.png
             bitcorn-market-motion.png
+            bitcorn-embed-lab.png
           if-no-files-found: ignore

@@ -131,8 +131,9 @@ Operators can append **at most two** opt-in relay bases:
 embed.html?instrument=BTC-USD-SPOT&interval=1m&relay=https%3A%2F%2Frelay.example.org
 ```
 
-The embed will first use its compatible native exchanges, then configured
-relay candidates. HTTPS is required on deployed sites. For local development,
+The embed uses its compatible native exchanges first unless an operator
+explicitly chooses `preferred=relay:1` (or `relay:2`) to prioritize a
+configured relay. HTTPS is required on deployed sites. For local development,
 localhost/127.0.0.1 HTTP is permitted when the embed itself is served locally.
 Relay URLs must have no credentials, fragments or query strings.
 
@@ -172,6 +173,80 @@ Their data is **unattested** and cannot claim Kraken checksum validation or
 Binance sequence continuity merely through the relay protocol. An operator
 can implement signatures, event proofs or consensus as a later extension.
 
+## Running the self-hosted Kraken relay reference
+
+The repository includes `examples/relay-node.mjs`, a dependency-free
+Node 22+ HTTP/WebSocket reference server. It speaks the same strict v0.11
+relay protocol as the browser. It forwards Kraken spot candles, preserving
+the exact BTC/USD or ETH/USD instrument identity. It does **not** create
+independent price discovery, supply an L2 checksum, or attain cryptographic
+provenance. It is one more transport for an existing Kraken venue, useful
+for demonstrating self-hosting and integrating infrastructure. Independent
+relay operators can replace the upstream with an exchange they trust, while
+keeping the same typed interface.
+
+Start it alongside the classic static file server:
+
+```sh
+# Terminal 1
+npm start
+
+# Terminal 2 (binds to localhost:8722 by default)
+npm run relay:kraken
+```
+
+Check that the HTTP API is up:
+
+```sh
+curl http://127.0.0.1:8722/health
+curl "http://127.0.0.1:8722/v1/candles?instrument=BTC-USD-SPOT&interval=1m&limit=900"
+```
+
+To prioritize this relay before Kraken's direct browser endpoint and
+Coinbase, open:
+
+```text
+http://127.0.0.1:5173/embed.html?instrument=BTC-USD-SPOT&interval=1m&preferred=relay:1&relay=http%3A%2F%2F127.0.0.1%3A8722
+```
+
+The embed labels the data source **RELAY 1**, retaining its declared
+BTC-USD-SPOT identity. If the relay disconnects or stops reporting valid
+candles, the router can move to Kraken or Coinbase directly.
+
+The reference server listens only on loopback, handles up to 16 concurrent
+read-only WebSockets, serves a bounded JSON history, refuses unsupported
+markets, imposes a downstream frame cap, and closes upstream subscriptions
+when downstream clients disconnect. Public operators should put an
+HTTPS/WSS reverse proxy with connection/rate limits and explicit allowed
+origins in front of it. Configure `CORS_ORIGIN=https://your-app.example`
+for a trusted browser app (the default `*` suits public read-only testing).
+Running a live relay requires reachable Kraken REST/WS endpoints and the
+venue's applicable data terms.
+
+`test/relay-node.test.mjs` exercises an actual local WebSocket handshake
+and history request with an injected mock Kraken upstream, so CI does not
+need external connectivity to test the reference protocol.
+
+## Cross-origin deployment
+
+An iframe can be inserted directly into any page that permits frames from
+the BitcornWisdom host. The JavaScript SDK can also be imported by an
+unrelated origin, provided the serving CDN sets
+`Access-Control-Allow-Origin: *` for `src/embed-sdk.js`.
+The bundled Node static host explicitly sets this header for that
+public, credential-free module. For third-party CDNs, confirm their CORS
+behavior or host the MIT-licensed SDK module yourself.
+
+`npm run smoke:cross-origin` loads a separate origin in Chrome under
+a strict Content Security Policy, imports the SDK over CORS, mounts the
+independent iframe, exercises its commands and rejects forged origins.
+The embed's own CSP permits Canvas resize styles, while the full classic
+desk retains its frame restrictions.
+
+**Live history labels:** REST OHLCV is marked `HISTORY`; `LIVE TICK`
+appears after the first actual WebSocket candle. This avoids presenting
+a historical snapshot as a freshly observed trade.
+
 ## Limits and QA
 
 This SDK embeds the **candle chart**, including its own indicators,
@@ -187,6 +262,9 @@ Static GitHub Pages deployments require enabling GitHub Pages with
 rest of the site.
 
 Run `npm run check` for contract and failover state-machine tests.
+`npm run smoke:cross-origin` verifies another application's origin can
+import and control a sandboxed chart. The native relay mock test is included
+in the normal Node suite.
 `npm run smoke:embed` runs the real Chrome
 `embed-lab.html?demo=1` page with two independent iframes, SDK commands,
 invalid-preference rejection, and forged message-origin tests. The test

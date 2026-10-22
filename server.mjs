@@ -55,6 +55,10 @@ createServer(async (request, response) => {
       'Content-Length': info.size,
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
+      // Browser module imports from a different app origin require CORS.
+      // This standalone SDK contains no credentials or private state.
+      ...(pathname === '/src/embed-sdk.js' ?
+        { 'Access-Control-Allow-Origin': '*', 'Cross-Origin-Resource-Policy': 'cross-origin' } : {}),
       'Referrer-Policy': 'no-referrer',
       'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
         connectPolicy +

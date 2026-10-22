@@ -18,6 +18,9 @@ test('embed is iframe-capable while the classic desk remains frame-protected',
       await new Promise(resolve=>setTimeout(resolve,100));
     }
     assert.ok(ready,'Local static server must start');
+    const sdk=await fetch(base+'/src/embed-sdk.js');
+    assert.equal(sdk.headers.get('access-control-allow-origin'), '*');
+    assert.equal(sdk.headers.get('cross-origin-resource-policy'), 'cross-origin');
     const embed=await fetch(base+'/embed.html');
     const page=await embed.text();
     const embedCsp=embed.headers.get('content-security-policy');

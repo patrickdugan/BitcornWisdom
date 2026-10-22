@@ -9,6 +9,8 @@ Depth WS: wss://data-stream.binance.vision/ws/btcusdt@depth@100ms
 
 Buffer depth events, retrieve REST snapshot, and bridge snapshot lastUpdateId against U/u. Stop publishing the book when update sequence continuity fails.
 
+Binance historic candles can request older pages using endTime = earliest_loaded_bar_open_ms - 1. Each request is capped at 1,000 bars. Empty pages end pagination.
+
 Source: https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md
 
 ## Binance USDⓈ-M
@@ -43,6 +45,8 @@ REST candles: https://api.exchange.coinbase.com/products/BTC-USD/candles?granula
 Public WebSocket: wss://ws-feed.exchange.coinbase.com
 
 Subscribe to level2_batch, matches and heartbeat for BTC-USD. The Exchange REST candle format is [Unix seconds, low, high, open, close, base volume], in reverse chronological order with up to 300 bars per request. Supported intervals: 60, 300, 900, 3600, 21600 and 86400 seconds.
+
+Coinbase older-candle requests include an explicit start/end ISO 8601 range, bounded to 299 interval spans to remain within its documented 300-candle limit. Empty pages end pagination.
 
 The unauthenticated level2_batch feed sends a book snapshot followed by ordered, absolute-quantity l2update messages. The consumer bounds storage to 1,000 known levels and resubscribes on reconnect. The matches channel gives per-trade price, size and maker side; maker side is inverted for the taker-aggressor tape. Because matches messages may be dropped, heartbeat last_trade_id monitors progress, with a grace interval and cooldown before refreshing REST history. Restored OHLCV can still have data gaps; no archival replay service exists.
 

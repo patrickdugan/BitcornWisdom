@@ -89,6 +89,8 @@ let historyController = null;
 let demoTimer = null;
 let lastBookRender = 0;
 let lastTradeRender = 0;
+let quoteFrame = null;
+let pendingQuote = null;
 let trades = [];
 let tradeSequence = 0;
 let demoTick = 0;
@@ -276,6 +278,18 @@ function setPrice(price) {
   }
 }
 
+function scheduleTradeQuote(price) {
+  if (!Number.isFinite(price) || price <= 0) return;
+  pendingQuote = price;
+  if (quoteFrame !== null) return;
+  // One DOM quote update per visual frame even when a venue emits hundreds of trades.
+  quoteFrame = requestAnimationFrame(() => {
+    quoteFrame = null;
+    if (pendingQuote !== null) setPrice(pendingQuote);
+    pendingQuote = null;
+  });
+}
+
 function showLoading(enabled) {
   el('chart-loading').hidden = !enabled;
   if (enabled) el('chart-error').hidden = true;
@@ -379,6 +393,9 @@ function addTrade(trade) {
 
 function stopFeed() {
   session += 1;
+  if (quoteFrame !== null) cancelAnimationFrame(quoteFrame);
+  quoteFrame = null;
+  pendingQuote = null;
   stopLiquidityPlayback();
   if (controller) { controller.abort(); controller = null; }
   if (resyncController) { resyncController.abort(); resyncController = null; }
@@ -495,12 +512,12 @@ async function loadMarket() {
       onCandle: (candle) => {
         if (session !== current) return;
         chart.updateCandle(candle);
-        setPrice(candle.close);
+        setPrice(chart.currentMarketPrice() ?? candle.close);
       },
       onTrade: (trade) => {
         if (session !== current) return;
         chart.updateTrade(trade);
-        setPrice(trade.price);
+        scheduleTradeQuote(trade.price);
         addTrade(trade);
       },
       onDepth,

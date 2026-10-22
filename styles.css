@@ -189,8 +189,63 @@ input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
 #delete-drawing:hover { color: var(--down); border-color: var(--down); }
 
 .icon-tool { min-width: 27px; font-size: 15px; }
-.chart-frame { flex: 1; min-height: 0; background: var(--chart); position: relative; }
-.chart-frame::after { content: 'BITCORNWISDOM / OPEN CHART ENGINE'; pointer-events: none;
+.chart-frame { flex: 1; min-height: 0; background: var(--chart); position: relative;
+  display: grid; gap: 2px; overflow: hidden; }
+.chart-frame.layout-1 { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr); }
+.chart-frame.layout-2 { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: minmax(0,1fr); }
+.chart-frame.layout-4 { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); }
+.chart-grid-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column;
+  background: var(--chart); overflow: hidden; border: 1px solid var(--border);
+  position: relative; }
+.chart-grid-pane.primary-pane { border-color: var(--border-hi); }
+.chart-grid-viewport { flex: 1; min-height: 0; min-width: 0; position: relative;
+  overflow: hidden; }
+.chart-grid-viewport canvas { display:block; }
+.grid-pane-top { flex: none; min-height: 37px; padding: 4px 8px; display: flex;
+  align-items: center; flex-wrap: wrap; gap: 5px; background: var(--surface2);
+  border-bottom: 1px solid var(--border); }
+.layout-1 .primary-pane .grid-pane-top { display: none; }
+.grid-pane-index { font: 9px ui-monospace,Consolas,monospace; letter-spacing: .6px;
+  color: var(--accent); white-space: nowrap; }
+.grid-pane-top strong { color: var(--fg); font: 11px ui-monospace,Consolas,monospace; white-space: nowrap; }
+.grid-pane-badge { margin-left: auto; color: var(--dim);
+  font: 9px ui-monospace,Consolas,monospace; white-space: nowrap; }
+.grid-pane-controls { display:flex; gap: 4px; align-items: center; flex-wrap: wrap;
+  flex: 1; min-width: 0; justify-content: flex-end; }
+.grid-pane-controls select, .grid-pane-controls input {
+  height: 26px; padding: 0 5px; font: 10px ui-monospace,Consolas,monospace;
+  border-radius: 4px; min-width: 0; }
+.grid-pane-controls .pane-market { width: 106px; }
+.grid-pane-controls .pane-symbol { width: 84px; font-weight: 750; text-transform: uppercase; }
+.grid-pane-controls .pane-interval { width: 53px; }
+.grid-pane-controls button { height: 25px; min-width: 25px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--muted); padding: 0 5px; font: 10px ui-monospace,Consolas,monospace; }
+.grid-pane-controls button:hover { border-color: var(--accent); color: var(--fg); }
+.grid-pane-controls button.active { background: var(--glow); color: var(--accent);
+  border-color: var(--border-hi); }
+.grid-pane-controls .pane-load { font-weight: 750; background: var(--accent); color: #13232c;
+  border-color: var(--accent); }
+.grid-pane-controls .pane-load:hover { color: #0b171e; }
+.grid-pane-status { font: 10px ui-monospace,Consolas,monospace; color: var(--muted); }
+.grid-pane-status[data-state="live"] { color: var(--up); }
+.grid-pane-status[data-state="error"] { color: var(--down); }
+.grid-pane-error { position: absolute; inset: 0; z-index: 5; background: rgba(12,18,29,.93);
+  padding: 15px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; gap: 9px;
+  font: 11px ui-monospace,Consolas,monospace; color: var(--down); }
+.grid-pane-error[hidden] { display: none; }
+.grid-pane-error button { border: 1px solid var(--accent); color: var(--accent);
+  background: transparent; border-radius: 5px; padding: 5px 9px; }
+.grid-layout-controls select { width: 78px; }
+.grid-link-label { color: var(--muted); display: inline-flex; align-items: center;
+  gap: 3px; font: 10px ui-monospace,Consolas,monospace; cursor: pointer; }
+.grid-link-label input { height: 14px; width: 14px; accent-color: var(--accent); margin: 0; }
+.layout-2 .grid-pane-top, .layout-4 .grid-pane-top { gap: 4px; }
+.layout-4 .grid-pane-top { min-height: 43px; padding: 3px 6px; }
+.layout-4 .grid-pane-controls select, .layout-4 .grid-pane-controls input { height: 24px; }
+
+.chart-frame.layout-1::after { content: 'BITCORNWISDOM / OPEN CHART ENGINE'; pointer-events: none;
   position: absolute; right: 100px; top: 38px; font: 10px ui-monospace,monospace;
   color: var(--muted); opacity: .23; letter-spacing: 1.3px; }
 #candle-chart { display: block; cursor: grab; touch-action: none; }
@@ -305,6 +360,14 @@ input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
   padding: 12px 15px; border-radius: 8px; background: var(--elevated); border: 1px solid var(--border-hi);
   box-shadow: 0 8px 25px rgba(0,0,0,.38); color: var(--fg); font: 11px ui-monospace,monospace; }
 .workspace-toast[hidden] { display: none; }
+@media (max-width: 1600px) {
+  .toolbar { overflow-x: auto; scrollbar-width: thin; }
+  .toolbar .tool-group { flex: none; }
+  .grid-link-label { font-size: 9px; }
+}
+@media (max-width: 1230px) {
+  .chart-frame.layout-2 { grid-template-columns: minmax(0,1fr); grid-template-rows: repeat(2,minmax(0,1fr)); }
+}
 @media (max-width: 1370px) {
   .workspace { grid-template-columns: 200px minmax(0,1fr) 290px; }
   .workspace.watchlist-collapsed { grid-template-columns: 0 minmax(0,1fr) 290px; }

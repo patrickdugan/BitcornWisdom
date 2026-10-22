@@ -1,73 +1,69 @@
 # BitcornWisdom
 
-An independent, MIT-licensed, BitcoinWisdom-inspired market terminal. It runs directly in modern browsers with **zero JavaScript dependencies**.
+An independent MIT-licensed market terminal inspired by BitcoinWisdom, built with native browser modules, Canvas2D, and **zero npm dependencies**.
 
-The first version includes OHLC candles, volume, EMA20/SMA50, log scale, mouse/keyboard navigation, crosshair inspection, saved trend lines, Binance Spot and USDⓈ-M public feeds, a trade tape, top-20 depth snapshots, and a rolling liquidity heatmap.
+Version 0.2 includes Binance Spot, Binance USDⓈ-M Futures, and Kraken Spot. It has OHLC candles, volume, EMA20/SMA50, log scale, wheel zoom, drag pan, keyboard controls, crosshair, locally saved trend lines, trades, a verified order-book display and a live liquidity heatmap. No account, wallet, exchange key or TradingView library is required.
 
-**Status:** first working slice. The offline demo is deterministic and independent of exchange access. Live Binance connectivity depends on the browser/network and still needs a hands-on check. This is read-only visualization software.
+## Getting started
 
-## Running it
-
-Node 20 or later:
+Requires Node.js 20+.
 
     git clone https://github.com/patrickdugan/BitcornWisdom.git
     cd BitcornWisdom
     npm start
 
-Open http://127.0.0.1:5173/
-
-For an instant offline chart, visit http://127.0.0.1:5173/?demo=1 or click **Use offline demo** in the footer.
-
-To run checks:
+Open http://127.0.0.1:5173/ for live public feeds, or http://127.0.0.1:5173/?demo=1 for the deterministic offline demo.
 
     npm run check
+    npm run smoke
+    npm run probe:live
 
-No npm install is required. The local server uses only Node built-ins. The browser loads native ES modules.
+The check script runs source syntax checks and 29 deterministic unit tests; smoke validates offline-demo hydration in Chrome. The live probe checks public REST/WebSocket endpoints and writes live-probe.json with reachability results. It is diagnostic and subject to regional blocking.
+
+## Markets
+
+| Market | Symbol | Candles | Trades | Book |
+| --- | --- | --- | --- | --- |
+| Binance Spot | BTCUSDT | Public REST + WS kline | Raw trades | REST snapshot + diff-depth sequence verification |
+| Binance USDⓈ-M | BTCUSDT | Futures REST + WS kline | aggTrade | Futures depth using U/u/pu continuity |
+| Kraken Spot | BTCUSD | REST OHLC + WS v2 | WS v2 trades | WS v2 25-level book with top-ten CRC32 verification |
+
+Kraken accepts joined symbols such as BTCUSD and ETHUSD. Its supported intervals are 1m, 5m, 15m, 30m, 1h, 4h, 1d and 1w; the selector disables unsupported intervals.
+
+For Binance, the initial depth snapshot is limited to **1,000 known price levels per side**. The application buffers incremental depth events, validates the overlap with the REST snapshot and resynchronizes on missing IDs. This is a bounded synchronized local book, not the full exchange book at arbitrary price distances. Kraken maintains 25 levels and checks CRC32. On checksum failure, the book is cleared and the public socket reconnects.
+
+The heatmap records about one column per second, bins near-mid liquidity into 200 price buckets over a ±1% band, and retains up to 160 columns. It begins when the page opens. Neither full historical depth replay nor cross-exchange aggregation is implemented.
 
 ## Controls
 
-- Mouse wheel: zoom around pointer.
-- Mouse drag: pan.
-- Focus chart, then left/right arrows: pan; up/down arrows: zoom; Home: reset.
-- Line button, then two chart clicks: add a trend line; Ctrl+Z or ↶: undo; Esc: cancel pending line.
-- EMA 20, SMA 50, LOG toggles: indicators and scale.
-- Market menu: Binance Spot or Binance USDⓈ-M. Enter BTCUSDT, ETHUSDT or another supported symbol, then Load.
-- Timeframes: 1 minute to 1 week.
+- Wheel zooms beneath the cursor; drag pans.
+- Focus the chart for arrow-key pan/zoom, then Home to reset.
+- Select Line and click twice to draw; Esc cancels and Ctrl+Z undoes.
+- EMA, SMA, LOG toggles persist in localStorage.
+- Market, timeframe and per-market drawings are stored locally.
 
-Markets, settings and per-market/timeframe drawings persist in localStorage. The demo is clearly labelled so synthetic data cannot be mistaken for a real price.
+## Implementation
 
-## Market data
+The source files are arranged by task:
 
-| Feed | Source | Meaning |
-| --- | --- | --- |
-| Spot candles | Binance public market-data REST | 1,000 recent OHLCV bars |
-| Spot realtime | Binance market-data WebSocket | kline, trade, partial book |
-| USDⓈ-M history | Binance /fapi/v1/klines | 1,000 recent OHLCV bars |
-| USDⓈ-M realtime | Binance futures market stream | kline, trade, partial book |
-| Offline demo | Deterministic local generator | Sample-only, explicitly marked |
+- src/chart.js: Canvas rendering, scales and drawing.
+- src/core.js and src/indicators.js: shared OHLCV and indicators.
+- src/binance.js: Binance public REST and WS, separated 2026 market/public stream routing.
+- src/orderbook.js: deterministic snapshot and delta reconciliation.
+- src/kraken.js: REST candles, WS v2 trades and CRC32-verified book.
+- src/realtime.js: shared reconnecting WebSocket transport.
+- src/heatmap.js: bounded aggregation and heatmap rendering.
+- src/main.js: market lifecycle and UI.
+- src/demo.js: labelled synthetic market feed.
 
-**Order-book precision:** the first version uses public, self-contained top-20 partial book snapshots, displaying the nearest 10 levels per side. The heatmap samples these at about one second and retains up to 160 columns. It starts from the moment the page opens. It is neither historical full-depth data nor an aggregated book. Correct full-depth replay requires a separate snapshot-plus-delta reconciliation design.
+## What has been verified
 
-Binance may refuse connections based on region, IP, API permissions or browser network policies. The offline demo remains available in such situations. No API keys are accepted, no orders are sent, and no backend account exists.
+In an October 22, 2026 GitHub Actions connectivity run, **six of seven** public exchange endpoints responded with valid data: Binance Spot REST candles and trades, Binance Futures aggregate trades and sequenced depth, Kraken REST candles and a CRC32-verified Kraken WebSocket book snapshot. Binance Futures REST candles returned **HTTP 451** from the runner's region. Live tests demonstrate network reachability from that host; browser CORS and other regional conditions can differ.
 
-## Code map
+All 29 deterministic tests and the local-demo Chrome smoke passed. Additional browser and longer-duration depth soak checks remain on the roadmap.
 
-| File | Role |
-| --- | --- |
-| src/core.js | Normalized candles, trades, depth; validation |
-| src/binance.js | Public REST and combined WS adapter |
-| src/chart.js | Canvas2D chart and interaction engine |
-| src/indicators.js | SMA, EMA, RSI calculation |
-| src/heatmap.js | Live depth-history visualization |
-| src/demo.js | Network-independent synthetic feed |
-| src/main.js | Browser UI, lifecycle, settings |
-| server.mjs | Zero-dependency local static server |
-| test/ | Built-in Node test suite |
+See docs/NETWORK_MODEL.md, docs/ARCHITECTURE.md, docs/FEATURE_MATRIX.md and docs/MVP_SPEC.md for protocol notes, build decisions and limitations.
 
-## Development notes
+## License and provenance
 
-See docs/AUDIT.md, docs/FEATURE_MATRIX.md, docs/ARCHITECTURE.md, docs/NETWORK_MODEL.md, docs/MVP_SPEC.md, and docs/PERFORMANCE.md.
-
-Sources: [Binance public market-data endpoints](https://github.com/binance/binance-spot-api-docs/blob/master/faqs/market_data_only.md), [Binance spot stream protocol](https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md), [USDⓈ-M futures klines](https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data).
-
-The design takes inspiration from the old BitcoinWisdom UX and the independent [Grossman 2020 MIT reconstruction](https://github.com/grossman8/bitcoin-wisdom-chart). No proprietary BitcoinWisdom source or upstream Grossman implementation was copied into this repository. See THIRD_PARTY_NOTICES.md.
+MIT. Independent of BitcoinWisdom.com and BitcoinWisdom.io. The public [grossman8/bitcoin-wisdom-chart](https://github.com/grossman8/bitcoin-wisdom-chart) (MIT, Copyright 2020 Grossman) was examined as a behavior reference; its source code was not copied. See THIRD_PARTY_NOTICES.md.

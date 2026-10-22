@@ -1,29 +1,41 @@
-# Network model and provenance
+# Network model, reviewed October 22, 2026
 
 ## Binance Spot
 
-REST history: https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=1000
+Candles: https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=1000
+Depth REST: https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=1000
+Combined candle/trade WS: wss://data-stream.binance.vision/stream?streams=btcusdt@kline_5m/btcusdt@trade
+Depth WS: wss://data-stream.binance.vision/ws/btcusdt@depth@100ms
 
-Fallback REST: https://api.binance.com/api/v3/klines
+Buffer depth events, retrieve REST snapshot, and bridge snapshot lastUpdateId against U/u. Stop publishing the book when update sequence continuity fails.
 
-Combined market stream: wss://data-stream.binance.vision/stream?streams=btcusdt@kline_5m/btcusdt@trade/btcusdt@depth20@100ms
-
-The public combined stream wraps messages with stream and data properties. Kline events supply t/o/h/l/c/v; trade events supply T/p/q/m; partial depth packets supply bids/asks and a lastUpdateId.
+Source: https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md
 
 ## Binance USDⓈ-M
 
-REST history: https://fapi.binance.com/fapi/v1/klines
+Candles: https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&limit=1000
+Depth REST: https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000
+Market WS: wss://fstream.binance.com/market/stream?streams=btcusdt@kline_5m/btcusdt@aggTrade
+Depth WS: wss://fstream.binance.com/public/ws/btcusdt@depth@100ms
 
-Market stream: wss://fstream.binance.com/market/stream?streams=...
+Futures event pu must match the previous event's final ID u after the first snapshot-overlapping event. The futures /public and /market separation was introduced in 2026; legacy unrouted endpoints were retired in April 2026.
 
-History and live frames normalize into the same app model. Futures and spot remain separate instruments.
+Source: https://developers.binance.com/en/docs/products/derivatives-trading-usds-futures/websocket-market-streams/Connect
 
-Network behavior: abort canceled fetches, ignore stale session callbacks, reconnect with exponential backoff capped around 30 seconds. No keys or signed calls. Geographic restrictions can prevent live access.
+## Kraken Spot
 
-References: [Spot stream documentation](https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md), [public data hosts](https://github.com/binance/binance-spot-api-docs/blob/master/faqs/market_data_only.md), [Binance Futures API docs](https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data).
+REST OHLC: https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=5
+Market WS v2: wss://ws.kraken.com/v2
 
-## BitcoinWisdom archaeology
+Subscribe to ohlc, trade and book (depth 25) for BTC/USD. The REST OHLC array contains epoch seconds, OHLC, VWAP, volume and trade count, up to 720 recent entries. Kraken v2 book sends a CRC32 of top-ten ask/bid levels with each snapshot/update. The application keeps exact decimal spellings in its CRC calculation and reconnects after mismatches.
 
-Historical third-party adapter: https://github.com/garethdmm/gryphon/blob/73e19fa2d0b64c3fc7dac9e0036fc92e25e5b694/gryphon/lib/bitcoinwisdom.py describes an old candle endpoint at s5.bitcoinwisdom.com/period, with step and symbol query parameters.
+Official docs:
+- https://docs.kraken.com/api/docs/rest-api/get-ohlc-data/
+- https://docs.kraken.com/api/docs/websocket-v2/ohlc/
+- https://docs.kraken.com/api/docs/websocket-v2/trade/
+- https://docs.kraken.com/api/docs/websocket-v2/book/
+- https://docs.kraken.com/api/docs/guides/spot-ws-book-v2/
 
-**Evidence labels:** the Binance endpoint formats are DOCUMENTED public interfaces; the historical client source is VERIFIED as published third-party code; current live BitcoinWisdom proprietary network schema is NOT YET CAPTURED. No claim of protocol compatibility is made.
+## Endpoint probe
+
+On October 22, 2026, GitHub Actions reported six successful public endpoints: Binance Spot REST candles/WS trades, Binance Futures WS aggTrade/diff-depth, Kraken REST OHLC, and a CRC-valid Kraken WebSocket book. Binance Futures REST responded HTTP 451 from the runner. These observations describe that network only and do not guarantee browser reachability. The raw report is an optional CI artifact.

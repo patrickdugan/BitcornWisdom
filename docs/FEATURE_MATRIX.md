@@ -1,25 +1,17 @@
-# Feature matrix
+# v0.2 feature matrix
 
-The original column reflects historical BitcoinWisdom descriptions. The Grossman column is grounded in its published 2020 code. Implemented means code is in BitcornWisdom; live-network/browser verification is a separate question.
+| Feature | Implementation | Follow-up |
+| --- | --- | --- |
+| Candles, volume, pan/zoom | Canvas2D chart | 100k-bar benchmarks |
+| EMA/SMA, log scale | Yes | Further overlays |
+| RSI | Library calculation | RSI subplot |
+| Trend lines | Local persistence | Editing/Fibonacci |
+| Binance Spot | Candles, raw trades, synchronized bounded L2 | Deep historical replay |
+| Binance Futures | Candles, aggTrade, U/u/pu synchronized L2 | Futures REST region checks |
+| Kraken Spot | REST/WS v2 candles, trade, CRC32-verified L2 | Larger book depth |
+| Heatmap | Live ±1% band, 200 bins, 160 samples | Durable depth |
+| Other venues | Planned | Coinbase, Bitfinex, Bybit |
+| Alerts, trading, social | Out of scope for core | Optional separate services |
+| TradingView dependency | None | Maintain |
 
-| Feature | Historic BitcoinWisdom | Grossman 2020 | BitcornWisdom v0.1 |
-| --- | --- | --- | --- |
-| Candles / volume | Yes | Candles, volume data | Implemented |
-| Pan / wheel / arrows | Yes | Yes | Implemented |
-| Crosshair / OHLC | Yes | Partial | Implemented |
-| Linear / log scale | Yes | Linear only | Implemented |
-| EMA / MA | Yes | Missing | EMA20 / SMA50 |
-| Bollinger / SAR | Yes | Missing | Later |
-| MACD / RSI / StochRSI | Yes | Missing | RSI math only, pane later |
-| KDJ / DMI / CMF / OBV | Yes | Missing | Later |
-| Trend lines | Yes | Basic | Implemented |
-| Fibonacci | Yes | Missing | Later |
-| Public Spot feed | Yes | Needs bespoke server | Binance Spot |
-| Public Futures feed | Yes | BitMEX listed | Binance USDⓈ-M |
-| Trade tape | Yes | Socket subscription | Implemented |
-| Order book | Yes | Reader only | Top-20 partial snapshots |
-| Liquidity heatmap | Yes | Missing | Rolling top-20 only |
-| Aggregated heatmap | Yes | Missing | Later |
-| Local drawings | Yes | In memory | localStorage |
-| Alerts | Yes | Missing | Later |
-| No TradingView | Yes | Yes | Yes |
+BitcornWisdom is an independent behavioral rebuild with zero runtime dependencies.

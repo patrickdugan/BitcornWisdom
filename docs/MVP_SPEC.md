@@ -1,23 +1,14 @@
-# Build milestones
+# Next milestones
 
-## Implemented first slice
+Delivered by v0.2: standalone Canvas2D terminal; market/timeframe controls; persisted trend lines; Binance Spot and USDⓈ-M candle/trade adapters; U/u/pu synchronized 1,000-level bounded Binance order books; Kraken spot OHLC, trades and CRC32-verified 25-level book; bin-limited heatmap; offline demo; tests; live network probe.
 
-OHLCV chart, keyboard/mouse pan and zoom, crosshair, UTC axes, linear/log scale, EMA20, SMA50, volume, locally persisted trend lines, Binance Spot/Futures public history and streams, top-20 partial depth, trade tape, rolling partial-book heatmap, offline sample mode, zero external JS dependencies, unit tests, CI.
+Next engineering tasks:
 
-The first slice still needs cross-browser UI and exchange-connectivity verification.
+1. Real-browser end-to-end test of Binance Spot and Kraken from multiple regions.
+2. Soak test of L2 synchronization and automated recovery, tracking reset rates and latency.
+3. Coinbase and Bitfinex public market adapters.
+4. Historical candle pagination, time-gap handling, incremental indicator caching.
+5. Log and linear renderer benchmarking at 1k, 10k, 100k candles.
+6. RSI, MACD, Bollinger indicators; editable drawing geometry.
 
-## Next
-
-1. Browser screenshot and interaction tests, plus measured Canvas2D performance.
-2. Historical candle paging beyond the current 1,000-bar fetch.
-3. Snapshot-plus-delta order-book synchronization with sequence-gap recovery.
-4. Cross-browser precision checks for index/time/price transforms.
-5. Coinbase, Kraken, Bybit and Bitfinex adapter contract tests.
-6. RSI chart pane, MACD, Bollinger Bands, SAR and further oscillators.
-7. Drawings selection/editing, horizontal/vertical lines, exports, saved layouts.
-
-## Later
-
-Cross-exchange price/quote normalization; full-depth and aggregated historical heatmaps; alerts with explicit security controls; browser vs WebGL measured comparison at 1,000, 10,000 and 100,000 bars.
-
-Keep broker accounts, Pine Script, social plugins and TradingView dependencies outside the core.
+Later: durable historical L2 capture, replayable liquidity heatmaps and cross-venue aggregation.

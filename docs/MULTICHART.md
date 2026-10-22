@@ -1,33 +1,36 @@
-# Multi-chart desk (v0.8)
+# Multi-chart desk (v0.9)
 
-BitcornWisdom provides a separate, static `grid.html` workspace. The original chart-and-order-book desk remains intact on `index.html`.
+BitcornWisdom runs a static, independent 1/2/4-chart workstation at `grid.html`; the classic order-book desk remains at `index.html`.
 
-## How to use
+## Start
 
-Open `grid.html?demo=1` for the synthetic offline market. Set the layout to 1, 2 or 4 charts. In each cell select an exchange, symbol and timeframe. Press GO or Enter. Layout selections are stored locally under `bitcornwisdom:grid:v1` and restored when reopening this browser origin.
+```sh
+npm start
+# open http://127.0.0.1:5173/grid.html?demo=1&mode=4
+```
 
-You can deep-link to layouts using `grid.html?demo=1&mode=4`. Query overrides change the displayed mode for that opening.
+Synthetic demo feeds are explicitly labelled. Remove `demo=1` to subscribe to public exchange market data. The `mode` query parameter overrides the initially displayed layout, and each visible cell has its own exchange, symbol, interval, history request, reconnecting WebSocket and Canvas chart. Reducing chart count closes the hidden connections and clears their demo timers.
 
-**Sync crosshair** broadcasts the hovered candle's timestamp to the other visible charts. Each chart renders a vertical guide at the matching time. For this initial release crosshair synchronization uses timestamps from nearest candles rather than a continuous calendar x-axis. When switching exchanges or timeframes, exact visual alignment can be approximate.
+## Custom layouts
 
-**Sync zoom/pan** sends the leading chart's bar width and distance from its latest bar to the others. It is best suited to charts at identical intervals. It is not equivalent to synchronized absolute UTC time ranges when intervals differ.
+On desktop widths above 1150px, drag the thin separator between the two columns. Four-chart mode adds a horizontal row separator. Both handles accept arrow keys (2.5% steps) and Home/End (20%/80%). Ratios are bounded to 20–80% and saved locally. Smaller viewports stack charts; the desktop ratios are retained for later.
 
-## Architecture
+To keep multiple configurations, type a **layout name** and press **Save**. Selecting an existing name and saving updates it. Select a named layout and press **Load** to restore its four chart selections, count, split ratios, sync flags and demo setting. **Delete** asks for confirmation. Up to 20 names are saved locally in this browser.
 
-Each chart cell owns its own `CandleChart`, abortable history request, reconnecting market WebSocket and demo timer. A per-cell generation number rejects stale asynchronous responses after an exchange or interval switch. Hidden cells are destroyed when switching from four to two or one charts, closing their sockets and canceling their timers. The 1/2/4 layouts share no OHLCV arrays.
+**Export JSON** downloads one portable document containing the active layout, all named layouts and the current theme. **Import JSON** validates the file and restores those values, replacing existing saved layouts. The importer accepts only the versioned BitcornWisdom workspace schema, rejects files above 256 KiB, constrains symbols, intervals, counts, names and ratios, and uses DOM text APIs for all imported strings. Export files contain public chart configuration only and no credentials or market history.
 
-Binance spot/futures, Kraken and Coinbase share the same per-cell API selection, with venue-specific interval allowlists. The grid omits the Level 2 book and liquidity recorder from each cell to avoid opening four full-depth book subscriptions. Those remain available in the classic desk.
+The active layout is stored as `bitcornwisdom:grid:v2` and presets as `bitcornwisdom:grid:presets:v1`. Existing `bitcornwisdom:grid:v1` layouts are read on first visit and saved as v2 the next time settings change.
 
-The renderer reuses all existing indicators and navigation controls; the grid's overlay theme applies to every cell. Grid layout persistence is separate from the classic desk's settings and the chart drawing localStorage keys.
+## Synchronization
 
-## Limits
+**Sync crosshair** sends a hovered candle's UTC timestamp to peer charts; matching guides are drawn near the relevant local candle.
 
-- 1, 2 or 4 visible charts, not arbitrary resizable panels.
-- Only active visible cells open public market sockets. Multiple subscriptions may be subject to exchange limits.
-- 8,000-bar cap in the renderer, but grid cells currently fetch only the exchange's initial recent REST page. The full historical paging UX remains in the classic desk.
-- Grid canvases are for inspection, without independent L2 ladders, local drawing toolbars or saved multi-layout collections in v0.8.
-- This is a static client; closing the page stops all live feeds, and geographic restrictions on exchange APIs still apply.
+**Sync UTC view** projects the source chart's visible left/right UTC timestamps into each peer's candle indices. Fractional interpolation works across different intervals and gaps in exchange history, aligning the visible time window when the renderer's zoom range and available candles permit it. At the 2–45 px/bar renderer limits, the requested UTC midpoint remains the anchor. Missing historical overlap leaves the target untouched. Peers never load additional data merely to synchronize, and changing the setting does not modify the classic desk.
 
-## Verification
+Mouse wheel zoom, drag pan and arrow-key navigation initiate a batched sync operation. Individual charts retain independent feeds, price scales, indicators and scroll state while sync is disabled.
 
-The `npm run smoke:grid` test opens the real grid page in Chrome using synthetic data and checks 1, 2 and 4-chart layouts, price labels, feed status and screenshots. The `test/grid.test.mjs` suite covers model normalization, market interval restrictions and serialization. The classic desk's full Chrome and live market tests remain in CI.
+## Boundaries and verification
+
+The grid has a maximum of four visible public candle feeds and an 8,000-bar renderer cap; each grid feed initially requests only its exchange's recent REST page. Independent L2 ladders, recording and historical paging stay in the classic desk. The page remains static and read-only, subject to public exchange limits and regional API access. Browser refresh restores local settings when storage is available.
+
+Run `npm run check` for Node tests (including UTC interpolation, v0.8 migration, presets and import rejection), and `npm run smoke:grid` for Chrome hydration/screenshot tests of all three grid sizes and their dividers. Existing classic-desk, liquidity and live-feed workflows remain part of CI.

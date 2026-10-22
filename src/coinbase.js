@@ -175,6 +175,38 @@ export class CoinbaseCandleBuilder {
   }
 }
 
+/** Detect missing match messages against Coinbase's last_trade_id heartbeat. */
+export class CoinbaseTradeGapMonitor {
+  constructor(graceMs = 2500, cooldownMs = 30000) {
+    this.graceMs = graceMs;
+    this.cooldownMs = cooldownMs;
+    this.gapSince = null;
+    this.lastRefreshAt = -Infinity;
+  }
+
+  observe(heartbeatTradeId, latestMatchId, now = Date.now()) {
+    if (!Number.isSafeInteger(heartbeatTradeId) ||
+        !Number.isSafeInteger(latestMatchId) || latestMatchId < 0) return false;
+    if (heartbeatTradeId <= latestMatchId) {
+      this.gapSince = null;
+      return false;
+    }
+    if (this.gapSince === null) {
+      this.gapSince = now;
+      return false;
+    }
+    if (now - this.gapSince >= this.graceMs &&
+        now - this.lastRefreshAt >= this.cooldownMs) {
+      this.lastRefreshAt = now;
+      this.gapSince = now;
+      return true;
+    }
+    return false;
+  }
+
+  reset() { this.gapSince = null; }
+}
+
 export class CoinbaseStream {
   constructor(symbol, interval, callbacks = {}, factory) {
     checkCoinbase(symbol, interval);
@@ -182,6 +214,7 @@ export class CoinbaseStream {
     this.callbacks = callbacks;
     this.book = new CoinbaseBook();
     this.builder = new CoinbaseCandleBuilder(interval);
+    this.tradeGap = new CoinbaseTradeGapMonitor();
     this.lastBookEmit = 0;
     this.seenConnection = false;
 
@@ -190,6 +223,7 @@ export class CoinbaseStream {
       onError: (error) => callbacks.onError?.(error),
       onClose: () => {
         this.book.reset();
+        this.tradeGap.reset();
         callbacks.onBookStatus?.('syncing', 'reconnecting');
       },
       onOpen: (socket) => {
@@ -200,7 +234,7 @@ export class CoinbaseStream {
         socket.send(JSON.stringify({
           type: 'subscribe',
           product_ids: [this.product],
-          channels: ['level2_batch','matches']
+          channels: ['level2_batch','matches','heartbeat']
         }));
       },
       onMessage: (text) => this.message(text)
@@ -230,13 +264,25 @@ export class CoinbaseStream {
         this.callbacks.onBookStatus?.('syncing', 'book invalid');
         this.transport.reconnect();
       }
+    } else if (message.type === 'last_match') {
+      // A replayed last fill marks where the new subscription starts.
+      const lastId = Number(message.trade_id);
+      if (Number.isSafeInteger(lastId)) {
+        this.builder.lastTradeId = Math.max(this.builder.lastTradeId, lastId);
+      }
+    } else if (message.type === 'heartbeat') {
+      const latestId = Number(message.last_trade_id);
+      if (this.tradeGap.observe(latestId, this.builder.lastTradeId)) {
+        this.callbacks.onFeedWarning?.('Missed trade(s) suspected; refreshing candles');
+        this.callbacks.onResyncHistory?.();
+      }
     } else if (message.type === 'match') {
       const trade = parseCoinbaseTrade(message);
       this.callbacks.onTrade?.(trade);
       const candle = this.builder.ingest(trade);
       if (candle) this.callbacks.onCandle?.(candle);
     }
-    // 'last_match' is a replay of a prior fill, not a fresh trade to add to OHLCV.
+    // Trade-gap detection uses Coinbase heartbeats and a cooldown to avoid excessive REST calls.
   }
 
   start() { this.transport.start(); return this; }

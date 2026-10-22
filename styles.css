@@ -47,6 +47,10 @@ a:hover, .text-link:hover { text-decoration: underline; }
 .branding strong { font-size: 14px; letter-spacing: 1px; display: block; white-space: nowrap; font-weight: 850; }
 .branding strong span { color: var(--accent); }
 .branding small { display: block; margin-top: 2px; color: var(--dim); font: 9px ui-monospace,Consolas,monospace; letter-spacing: 1.4px; }
+.grid-nav-link { padding: 8px 11px; border: 1px solid var(--border-hi); border-radius: 7px;
+ background: var(--elevated); color: var(--accent); font: 11px ui-monospace,monospace;
+ white-space: nowrap; text-decoration: none; }
+.grid-nav-link:hover { border-color: var(--accent); text-decoration: none; }
 .command-trigger {
   height: 34px; max-width: 330px; flex: 1; padding: 0 9px; border: 1px solid var(--border);
   border-radius: 8px; background: var(--surface2); color: var(--muted);

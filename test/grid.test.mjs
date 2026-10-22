@@ -40,3 +40,40 @@ test('grid layout persists round-trip, drops malformed entries and optional sett
  assert.equal(loadGridLayout(storage).mode,2);
  assert.equal(loadGridLayout(storage).syncCrosshair,true);
 });
+
+
+import { KrakenStream } from '../src/kraken.js';
+import { CoinbaseStream } from '../src/coinbase.js';
+
+function mockSocket() {
+  const sent = [];
+  const socket = { readyState: 1, sent,
+    send(value) { sent.push(JSON.parse(value)); },
+    close() { this.readyState = 3; } };
+  return socket;
+}
+test('chart-only Kraken feed subscribes to OHLC without L2 book stream', () => {
+ const ws = mockSocket();
+ const stream = new KrakenStream('BTCUSD','5m',{},()=>ws,{chartOnly:true});
+ stream.start(); ws.onopen();
+ assert.deepEqual(ws.sent.map(x=>x.params.channel),['ohlc']);
+ stream.close();
+});
+test('chart-only Coinbase feed avoids depth subscription while keeping trade candles', () => {
+ const ws=mockSocket();
+ const stream=new CoinbaseStream('BTCUSD','5m',{},()=>ws,{chartOnly:true});
+ stream.start();ws.onopen();
+ assert.deepEqual(ws.sent[0].channels,['matches','heartbeat']);
+ stream.close();
+});
+test('classic adapters retain depth subscriptions by default', () => {
+ const k=mockSocket(),c=mockSocket();
+ const ks=new KrakenStream('BTCUSD','5m',{},()=>k);
+ ks.start();k.onopen();
+ assert.ok(k.sent.some(x=>x.params.channel==='book'));
+ ks.close();
+ const cs=new CoinbaseStream('BTCUSD','5m',{},()=>c);
+ cs.start();c.onopen();
+ assert.ok(c.sent[0].channels.includes('level2_batch'));
+ cs.close();
+});

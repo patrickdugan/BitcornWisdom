@@ -184,7 +184,7 @@ test('stale timestamps, future timestamps and old replay do not refresh feed hea
   const warnings=[];
   const router=new FeedRouter({
     sources:feedPlan({instrument:'BTC-USDT-SPOT'}),
-    clock:()=>now,schedule:()=>42,cancel:()=>{},
+    clock:()=>now,schedule:()=>42,cancel:()=>{},staleMs:600000,
     openSource:async(source,cb)=>{callbacks=cb;cb.onStatus('live');return{close(){}};},
     onCandle:()=>accepted++,
     onError:error=>warnings.push(error.message)

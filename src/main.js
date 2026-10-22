@@ -65,6 +65,7 @@ let stream = null;
 let depthStream = null;
 let controller = null;
 let resyncController = null;
+let historyController = null;
 let demoTimer = null;
 let lastBookRender = 0;
 let lastTradeRender = 0;
@@ -209,6 +210,8 @@ function stopFeed() {
   session += 1;
   if (controller) { controller.abort(); controller = null; }
   if (resyncController) { resyncController.abort(); resyncController = null; }
+  if (historyController) { historyController.abort(); historyController = null; }
+  chart.onHistoryNeeded = null;
   if (stream) { stream.close(); stream = null; }
   if (depthStream) { depthStream.close(); depthStream = null; }
   if (demoTimer !== null) { clearInterval(demoTimer); demoTimer = null; }
@@ -251,6 +254,33 @@ async function loadMarket() {
   persist();
   clearTapeAndBook();
   chart.setCandles([], settings.interval);
+  chart.onHistoryNeeded = settings.demo || settings.market === 'kraken' ? null : async () => {
+    if (session !== current || !chart.candles.length) return false;
+    if (historyController) return null;
+    const ac = new AbortController();
+    historyController = ac;
+    const earliest = chart.candles[0].time;
+    const market = settings.market;
+    const symbol = settings.symbol;
+    const interval = settings.interval;
+    try {
+      const older = market === 'coinbase' ?
+        await fetchCoinbaseCandles(symbol, interval, ac.signal, fetch, earliest) :
+        await fetchCandles(market, symbol, interval, ac.signal, 1000, fetch, earliest);
+      if (session !== current || ac.signal.aborted) return null;
+      const count = chart.prependHistory(older);
+      if (count > 0) {
+        el('market-note').textContent = 'Historical candles loaded: ' + chart.candles.length;
+        return true;
+      }
+      return false;
+    } catch (error) {
+      if (!ac.signal.aborted) console.warn('Older OHLCV request failed:', error);
+      return null;
+    } finally {
+      if (historyController === ac) historyController = null;
+    }
+  };
   chart.setDrawings(readStored(drawingKey(), []));
   el('last-price').textContent = '—';
   el('price-change').textContent = 'OHLCV';
@@ -314,7 +344,7 @@ async function loadMarket() {
           const fresh = await fetchCoinbaseCandles(settings.symbol, settings.interval, active.signal);
           if (session !== current || active.signal.aborted) return;
           if (fresh.length) {
-            chart.setCandles(fresh, settings.interval, false);
+            chart.replaceRecentHistory(fresh);
             stream?.seedHistory(fresh);
             setPrice(fresh.at(-1).close);
             callbacks.onFeedWarning?.(null);

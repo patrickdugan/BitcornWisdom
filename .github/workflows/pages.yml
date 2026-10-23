@@ -54,16 +54,53 @@ jobs:
           test -f _site/src/grid.js
           # The published artifact contains no local files, workflow inputs or repo metadata.
           find _site -type f | sort
+      # A new repository has no Pages site until Settings > Pages is configured.
+      # Keep producing an inspectable build without retrying a known 404 on every push.
+      - name: Check Pages configuration before deployment
+        id: pages_status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          code="$(curl --silent --show-error --location \
+            --output "$RUNNER_TEMP/pages-status.json" --write-out '%{http_code}' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")"
+          case "$code" in
+            200) echo 'enabled=true' >> "$GITHUB_OUTPUT" ;;
+            404)
+              echo 'enabled=false' >> "$GITHUB_OUTPUT"
+              echo '::warning::GitHub Pages is not enabled. Static preview attached as a workflow artifact; enable Settings > Pages > GitHub Actions to publish.'
+              echo 'Pages is unconfigured. Enable **Settings → Pages → Source: GitHub Actions** to activate public deployment. The staged site is attached as an artifact.' >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              echo "Pages API returned HTTP $code; refusing to hide an unexpected error" >&2
+              cat "$RUNNER_TEMP/pages-status.json" >&2
+              exit 1
+              ;;
+          esac
+      - name: Attach staged site while Pages is unavailable
+        if: steps.pages_status.outputs.enabled != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-public-preview-pages-not-configured
+          path: _site
+          if-no-files-found: error
       - name: Configure GitHub Pages
+        if: steps.pages_status.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
       - name: Upload public static assets
+        if: steps.pages_status.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v4
         with:
           path: _site
       - name: Deploy live preview
+        if: steps.pages_status.outputs.enabled == 'true'
         id: deploy
         uses: actions/deploy-pages@v4
       - name: Validate published HTML and chart modules
+        if: steps.pages_status.outputs.enabled == 'true'
         env:
           LIVE_SITE: ${{ steps.deploy.outputs.page_url }}
         run: |
@@ -73,15 +110,18 @@ jobs:
             curl --fail --silent --show-error --location --retry 12 --retry-delay 5 --retry-all-errors "${LIVE_SITE%/}/$route" -o /dev/null
           done
       - uses: actions/setup-node@v4
+        if: steps.pages_status.outputs.enabled == 'true'
         with:
           node-version: '22'
       - name: Exercise direct exchange feeds from hosted Chrome
+        if: steps.pages_status.outputs.enabled == 'true'
         env:
           BITCORN_PUBLIC_URL: ${{ steps.deploy.outputs.page_url }}
         run: npm run browser:live
         continue-on-error: true
         timeout-minutes: 3
       - name: Exercise embedded live candle feed from hosted Chrome
+        if: steps.pages_status.outputs.enabled == 'true'
         env:
           BITCORN_EMBED_LIVE_URL: "${{ steps.deploy.outputs.page_url }}embed.html?instrument=BTC-USD-SPOT&interval=1m&preferred=kraken"
         run: npm run browser:embed-live

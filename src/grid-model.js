@@ -92,7 +92,7 @@ export function saveGridPresets(storage, presets, key = GRID_PRESETS_KEY) {
   storage.setItem(key, JSON.stringify(canonical));
   return canonical;
 }
-const GRID_THEMES = ['noir', 'synth', 'verdigris'];
+const GRID_THEMES = ['og-wisdom', 'noir', 'synth', 'verdigris'];
 export function exportGridWorkspace(layout, presets, theme = 'noir') {
   return JSON.stringify({
     kind: GRID_WORKSPACE_KIND,

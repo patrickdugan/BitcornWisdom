@@ -35,7 +35,7 @@ export const INSTRUMENTS = Object.freeze({
 });
 
 export const MAX_RELAYS = 2;
-export const EMBED_THEMES = Object.freeze(['noir', 'synth', 'verdigris']);
+export const EMBED_THEMES = Object.freeze(['og-wisdom', 'noir', 'synth', 'verdigris']);
 
 export function resolveInstrument(value = 'BTC-USD-SPOT') {
   if (typeof value !== 'string' || !Object.hasOwn(INSTRUMENTS, value))

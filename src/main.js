@@ -6,6 +6,7 @@ import { formatCompact, formatPrice, INTERVALS } from './core.js';
 import { makeDemoCandles, makeDemoDepth, nextDemoCandle } from './demo.js';
 import { LiquidityHeatmap } from './heatmap.js';
 import { LiquidityArchive, liquiditySeriesKey, ARCHIVE_POLICY } from './liquidity-archive.js';
+import { OrderBookLevelTracker, annotateOrderBookLadder } from './orderbook.js';
 import { normalTheme, sanitizeFavorites, MARKET_PRESETS } from './workspace.js';
 import { mountWorkspace } from './workspace-ui.js';
 
@@ -33,6 +34,7 @@ const settings = {
   symbol: (url.searchParams.get('symbol') || previous.symbol || 'BTCUSDT').toUpperCase(),
   interval: url.searchParams.get('interval') || previous.interval || '5m',
   demo: url.searchParams.has('demo') ? url.searchParams.get('demo') === '1' : Boolean(previous.demo),
+  showMA: previous.showMA ?? true,
   showEMA: previous.showEMA ?? true,
   showSMA: previous.showSMA ?? false,
   logarithmic: previous.logarithmic ?? false,
@@ -74,6 +76,7 @@ const heatmap = new LiquidityHeatmap(el('liquidity-heatmap'), {
 });
 const archive = new LiquidityArchive();
 chart.setOptions({
+  showMA: settings.showMA,
   showEMA: settings.showEMA, showSMA: settings.showSMA,
   showBB: settings.showBB, showRSI: settings.showRSI,
   theme: settings.theme, logarithmic: settings.logarithmic,
@@ -208,6 +211,7 @@ function persist() {
 function updateButtons() {
   document.documentElement.dataset.motion = settings.motionEnabled ? 'on' : 'off';
   for (const [id, active] of [
+    ['ma-toggle', settings.showMA],
     ['ema-toggle', settings.showEMA],
     ['sma-toggle', settings.showSMA],
     ['log-toggle', settings.logarithmic],
@@ -216,6 +220,7 @@ function updateButtons() {
     ['motion-toggle', settings.motionEnabled]
   ]) {
     const button = el(id);
+    if (!button) continue;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   }
@@ -304,8 +309,15 @@ function showError(error) {
   setStatus('error');
 }
 
+const bookLevelTracker = new OrderBookLevelTracker();
+let bookDecayTimer = null;
+let lastRenderedBook = null;
+
 function clearTapeAndBook() {
   chart.clearDepthBook();
+  bookLevelTracker.reset();
+  lastRenderedBook = null;
+  if (bookDecayTimer !== null) { clearTimeout(bookDecayTimer); bookDecayTimer = null; }
   trades = [];
   lastTradeRender = 0;
   lastBookRender = 0;
@@ -327,26 +339,44 @@ function createBookRow(side) {
   row.append(bar, price, quantity);
   return row;
 }
-function renderBookSide(container, levels, side, maxQty) {
+function renderBookSide(container, decorated, side) {
   if (!container.children.length) container.replaceChildren();
-  for (let i = 0; i < levels.length; i++) {
+  for (let i = 0; i < decorated.length; i++) {
     const row = container.children[i] || createBookRow(side);
-    const [price, quantity] = levels[i];
-    row.children[1].textContent = formatPrice(price);
-    row.children[2].textContent = formatCompact(quantity);
-    // Keep each row mounted so the bar width can transition between snapshots.
-    row.children[0].style.width = Math.min(100, quantity / maxQty * 100).toFixed(2) + '%';
+    const item = decorated[i];
+    row.className = 'book-row ' + side + (item.status !== 'normal' ? ' book-row--' + item.status : '');
+    row.dataset.levelStatus = item.status;
+    row.children[1].textContent = formatPrice(item.price);
+    row.children[2].textContent = item.status === 'wiped' ? '0.00' : formatCompact(item.size);
+    // Keep each row mounted so cumulative depth & ghost sweep bars transition smoothly.
+    row.children[0].style.width = item.depthPct.toFixed(2) + '%';
+    row.style.setProperty('--ghost-width', item.ghostPct > 0 ? item.ghostPct.toFixed(2) + '%' : '0%');
     if (!row.isConnected) container.append(row);
   }
-  while (container.children.length > levels.length) container.lastElementChild.remove();
+  while (container.children.length > decorated.length) container.lastElementChild.remove();
+}
+function paintBookDom(book, activeCleared, activeWalls) {
+  const asksDecorated = annotateOrderBookLadder(book.asks.slice(0, 10), 'ask', activeCleared, activeWalls, 10).reverse();
+  const bidsDecorated = annotateOrderBookLadder(book.bids.slice(0, 10), 'bid', activeCleared, activeWalls, 10);
+  renderBookSide(el('asks'), asksDecorated, 'ask');
+  renderBookSide(el('bids'), bidsDecorated, 'bid');
 }
 function renderBook(book) {
   if (!book.bids.length || !book.asks.length) return;
-  const bids = book.bids.slice(0, 10);
-  const asks = book.asks.slice(0, 10);
-  const maxQty = Math.max(1e-10, ...bids.map((row) => row[1]), ...asks.map((row) => row[1]));
-  renderBookSide(el('asks'), asks.reverse(), 'ask', maxQty);
-  renderBookSide(el('bids'), bids, 'bid', maxQty);
+  lastRenderedBook = book;
+  const now = Date.now();
+  const { activeCleared, activeWalls } = settings.motionEnabled
+    ? bookLevelTracker.observe(book, now)
+    : { activeCleared: [], activeWalls: [] };
+  paintBookDom(book, activeCleared, activeWalls);
+  if ((activeCleared.length || activeWalls.length) && bookDecayTimer === null) {
+    bookDecayTimer = setTimeout(() => {
+      bookDecayTimer = null;
+      if (!lastRenderedBook) return;
+      const ts = Date.now();
+      paintBookDom(lastRenderedBook, bookLevelTracker.activeAt(ts), bookLevelTracker.activeWallsAt(ts));
+    }, 435);
+  }
   const spread = Math.max(0, book.asks[0][0] - book.bids[0][0]);
   el('spread').textContent = formatPrice(spread) + ' (' +
     (100 * spread / book.asks[0][0]).toFixed(4) + '%)';
@@ -404,6 +434,7 @@ function stopFeed() {
   if (stream) { stream.close(); stream = null; }
   if (depthStream) { depthStream.close(); depthStream = null; }
   if (demoTimer !== null) { clearInterval(demoTimer); demoTimer = null; }
+  if (bookDecayTimer !== null) { clearTimeout(bookDecayTimer); bookDecayTimer = null; }
 }
 
 function startDemo(version) {
@@ -612,7 +643,7 @@ el('timeframe').addEventListener('change', () => {
 });
 
 function toggleIndicator(key) {
-  if (!['showEMA', 'showSMA', 'showBB', 'showRSI', 'logarithmic'].includes(key)) return;
+  if (!['showMA', 'showEMA', 'showSMA', 'showBB', 'showRSI', 'logarithmic'].includes(key)) return;
   settings[key] = !settings[key];
   chart.setOptions({ [key]: settings[key] });
   persist();
@@ -620,11 +651,12 @@ function toggleIndicator(key) {
 }
 
 for (const [id, key] of [
+  ['ma-toggle', 'showMA'],
   ['ema-toggle', 'showEMA'], ['sma-toggle', 'showSMA'],
   ['bb-toggle', 'showBB'], ['rsi-toggle', 'showRSI'],
   ['log-toggle', 'logarithmic']
 ]) {
-  el(id).addEventListener('click', () => toggleIndicator(key));
+  el(id)?.addEventListener('click', () => toggleIndicator(key));
 }
 el('drawing-tool').addEventListener('change', () => applyDrawingTool(el('drawing-tool').value));
 el('delete-drawing').addEventListener('click', () => chart.removeSelected());

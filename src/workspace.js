@@ -1,6 +1,7 @@
 // Small, framework-free workspace preferences and command search primitives.
-export const THEME_IDS = Object.freeze(['noir', 'synth', 'verdigris']);
+export const THEME_IDS = Object.freeze(['og-wisdom', 'noir', 'synth', 'verdigris']);
 export const THEME_NAMES = Object.freeze({
+  'og-wisdom': 'OG Wisdom (2013–16)',
   noir: 'Noir / copper',
   synth: 'Afterhours / lilac',
   verdigris: 'Verdigris / mint'
@@ -23,7 +24,7 @@ export const MARKET_PRESETS = Object.freeze([
 export const MAX_FAVORITES = 32;
 
 export function normalTheme(input) {
-  return THEME_IDS.includes(input) ? input : 'noir';
+  return THEME_IDS.includes(input) ? input : 'og-wisdom';
 }
 export function marketKey(market) {
   return market.market + ':' + market.symbol;
@@ -89,11 +90,24 @@ export function searchPalette(entries, input = '', limit = 12) {
 }
 
 export const CHART_COLORS = Object.freeze({
+  'og-wisdom': {
+    bg: '#0b0d10', axis: '#111317', grid: '#1e2229',
+    labels: '#8e97a4', cross: '#929ba8', up: '#66cc66', down: '#d94343',
+    upWick: '#5cb85c', downWick: '#cc3333',
+    upBody: 'rgba(92,184,92,.82)', downBody: 'rgba(204,51,51,.84)',
+    volUp: 'rgba(102,204,102,.46)', volDown: 'rgba(217,67,67,.46)',
+    ma7: '#ff9900', ma25: '#cc66ff', ma99: '#4ea1ff',
+    ema: '#ff9900', sma: '#cc66ff', bb: '#4ea1ff', rsi: '#ff9900',
+    last: '#ff9900', lastUp: '#5cb85c', lastDown: '#d94343', lastFlat: '#ff9900',
+    lastText: '#0b0d10', drawing: '#ff9900',
+    hoverBg: '#191d24', hoverText: '#e8edf4', guide: '#ff9900'
+  },
   noir: {
     bg: '#090f19', axis: '#101927', grid: '#24303e',
     labels: '#8194ad', cross: '#798da4', up: '#32d8ac', down: '#f47f94',
     upBody: 'rgba(28,180,143,.26)', downBody: 'rgba(222,73,105,.3)',
     volUp: 'rgba(47,183,146,.42)', volDown: 'rgba(234,97,128,.42)',
+    ma7: '#ff9900', ma25: '#cc66ff', ma99: '#4ea1ff',
     ema: '#f4c57a', sma: '#96b7f1', bb: '#a99df4', rsi: '#bca4ff',
     last: '#d7ac72', lastText: '#131922', drawing: '#e7bd89',
     hoverBg: '#1c2a39', hoverText: '#eaf0f7', guide: '#8da1bb'
@@ -103,6 +117,7 @@ export const CHART_COLORS = Object.freeze({
     labels: '#ab9ac7', cross: '#ac95d3', up: '#54e8e2', down: '#ff7caf',
     upBody: 'rgba(49,177,180,.24)', downBody: 'rgba(220,66,127,.31)',
     volUp: 'rgba(85,218,212,.38)', volDown: 'rgba(253,118,176,.37)',
+    ma7: '#ff9900', ma25: '#cc66ff', ma99: '#4ea1ff',
     ema: '#ffcb91', sma: '#b3a4ff', bb: '#d89ae9', rsi: '#fe9ed4',
     last: '#c7a5ff', lastText: '#171125', drawing: '#feb9d1',
     hoverBg: '#2a2042', hoverText: '#f1e8ff', guide: '#b4a3d2'
@@ -112,6 +127,7 @@ export const CHART_COLORS = Object.freeze({
     labels: '#8eafa7', cross: '#7ebcad', up: '#9ded9e', down: '#ff9c7a',
     upBody: 'rgba(120,203,115,.26)', downBody: 'rgba(230,113,73,.29)',
     volUp: 'rgba(147,220,148,.43)', volDown: 'rgba(241,139,107,.39)',
+    ma7: '#ff9900', ma25: '#cc66ff', ma99: '#4ea1ff',
     ema: '#ead588', sma: '#78c5c2', bb: '#a0aaed', rsi: '#b9d395',
     last: '#d9d18f', lastText: '#0c241b', drawing: '#e4d5a8',
     hoverBg: '#16362c', hoverText: '#e1fff0', guide: '#9bcbbb'

@@ -196,6 +196,7 @@ export function mountWorkspace({ settings, chart, persist, loadMarket, validateS
     } },
     { id: 'watchlist', title: 'Toggle watchlist panel', detail: 'Show or hide the left navigation', keywords: 'sidebar w', run: toggleWatchlist },
     { id: 'orderbook', title: 'Toggle order book panel', detail: 'Show or hide live depth and trades', keywords: 'sidebar b', run: toggleDepth },
+    { id: 'ma', title: 'Toggle MA 7/25/99', detail: 'Classic BitcoinWisdom MA(7) / MA(25) / MA(99) lines', keywords: 'indicator wisdom moving average', run: () => setIndicator('showMA') },
     { id: 'ema', title: 'Toggle EMA 20', detail: 'Exponential moving average overlay', keywords: 'indicator', run: () => setIndicator('showEMA') },
     { id: 'sma', title: 'Toggle SMA 50', detail: 'Simple moving average overlay', keywords: 'indicator', run: () => setIndicator('showSMA') },
     { id: 'bb', title: 'Toggle Bollinger Bands', detail: '20 periods · two standard deviations', keywords: 'indicator volatility', run: () => setIndicator('showBB') },

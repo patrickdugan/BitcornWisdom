@@ -9,13 +9,22 @@ import { sma, bollingerBands, rsi } from '../src/indicators.js';
 import { CandleChart } from '../src/chart.js';
 
 test('all workspace themes have palettes and sanitize invalid persisted choices', () => {
-  assert.deepEqual(THEME_IDS, ['noir', 'synth', 'verdigris']);
-  assert.equal(normalTheme('unknown-theme'), 'noir');
+  assert.deepEqual(THEME_IDS, ['og-wisdom', 'noir', 'synth', 'verdigris']);
+  assert.equal(normalTheme('unknown-theme'), 'og-wisdom');
+  assert.equal(CHART_COLORS['og-wisdom'].bg, '#0b0d10');
+  assert.equal(CHART_COLORS['og-wisdom'].axis, '#111317');
+  assert.equal(CHART_COLORS['og-wisdom'].grid, '#1e2229');
+  assert.equal(CHART_COLORS['og-wisdom'].up, '#66cc66');
+  assert.equal(CHART_COLORS['og-wisdom'].down, '#d94343');
+  assert.equal(CHART_COLORS['og-wisdom'].last, '#ff9900');
   for (const id of THEME_IDS) {
     assert.equal(normalTheme(id), id);
     assert.ok(CHART_COLORS[id].bg.startsWith('#'));
     assert.ok(CHART_COLORS[id].up.startsWith('#'));
     assert.ok(CHART_COLORS[id].rsi.startsWith('#'));
+    assert.equal(CHART_COLORS[id].ma7, '#ff9900');
+    assert.equal(CHART_COLORS[id].ma25, '#cc66ff');
+    assert.equal(CHART_COLORS[id].ma99, '#4ea1ff');
   }
 });
 

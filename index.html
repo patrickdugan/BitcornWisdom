@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-theme="noir">
+<html lang="en" data-theme="og-wisdom">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a1019">
+  <meta name="theme-color" content="#0b0d10">
   <meta name="description" content="BitcornWisdom: the open-source, keyboard-first crypto charting desk. Fast Canvas charts, live order books, liquidity replay, local watchlists.">
   <title>BitcornWisdom · Your market. Your desk.</title>
   <link rel="stylesheet" href="./styles.css">
@@ -37,6 +37,7 @@
     </form>
     <div class="top-actions">
       <select id="theme-select" class="theme-select" aria-label="Color theme">
+        <option value="og-wisdom">00 OG Wisdom</option>
         <option value="noir">01 Noir</option>
         <option value="synth">02 Afterhours</option>
         <option value="verdigris">03 Verdigris</option>
@@ -103,6 +104,7 @@
         </div>
         <div class="toolbar-divider"></div>
         <div class="tool-group indicator-group">
+          <button class="tool active" id="ma-toggle" aria-pressed="true">MA <span>7/25/99</span></button>
           <button class="tool active" id="ema-toggle" aria-pressed="true">EMA <span>20</span></button>
           <button class="tool" id="sma-toggle" aria-pressed="false">SMA <span>50</span></button>
           <button class="tool" id="bb-toggle" aria-pressed="false">BB <span>20</span></button>

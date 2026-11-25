@@ -49,6 +49,7 @@ function setStatus(state, reason, source) {
     reason === 'source-error' ? 'Failover · source unavailable' :
     reason === 'socket-disconnected' ? 'Failover · disconnected' :
     reason === 'demo' ? 'Synthetic offline prices' :
+    reason === 'no-relay' ? 'Relay-only market · no relay configured' :
     (reason || 'Source health monitored');
   if (source) {
     currentSource = source;
@@ -127,6 +128,13 @@ function startConfig(next) {
       publishCandle(row);
     }, 1100);
     post('source', { source: synthetic, reason: 'demo' });
+    return;
+  }
+  if (plan.length === 0) {
+    setStatus('unavailable', 'no-relay', null);
+    setError('No source: ' + resolveInstrument(active.instrument).label +
+      ' is served only by a configured relay (add relay=<origin>). Exchange feeds are never substituted.');
+    el('embed-connection').textContent = 'NO SOURCE';
     return;
   }
   setStatus('connecting', 'initial', null);

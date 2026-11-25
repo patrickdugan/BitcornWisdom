@@ -102,6 +102,14 @@ loading a global charting library into the application's JavaScript realm.
 | `BTC-USDT-SPOT` | Binance Spot BTCUSDT | Additional opt-in relays only |
 | `ETH-USDT-SPOT` | Binance Spot ETHUSDT | Additional opt-in relays only |
 | `BTC-USDT-PERP` | Binance USDⓈ-M BTCUSDT | Additional opt-in relays only |
+| `SHZ-BTCUSD-INV` | None (relay-only) | Configured relays only |
+
+Relay-only instruments (`relayOnly: true` in `INSTRUMENTS`) have no exchange
+sources and can be served only by a relay you configure with `relay=`. The first
+is `SHZ-BTCUSD-INV` (SHZ BTC/USD inverse, testnet; `1m`, `5m`, `15m`, `1h`;
+quote USD). Without a configured relay the embed shows a `NO SOURCE` state and
+an explanatory message; it never falls back to an exchange. Example:
+`embed.html?instrument=SHZ-BTCUSD-INV&interval=1m&preferred=relay:1&relay=https%3A%2F%2Fvenue.example.org`.
 
 For USD spot markets the supported common timeframes are
 `1m`, `5m`, `15m`, `1h`, `1d`. Other listed instruments have

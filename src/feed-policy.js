@@ -31,6 +31,14 @@ export const INSTRUMENTS = Object.freeze({
     label: 'BTC / USDT · perpetual', base: 'BTC', quote: 'USDT', product: 'perpetual',
     intervals: ['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d'],
     venues: [{market: 'futures', symbol: 'BTCUSDT'}]
+  }),
+  // Relay-only instruments have no exchange sources: they exist solely on
+  // operator-configured relays and never fall back to an exchange.
+  'SHZ-BTCUSD-INV': Object.freeze({
+    label: 'SHZ BTC/USD inverse (testnet)', base: 'BTC', quote: 'USD', product: 'inverse',
+    intervals: ['1m', '5m', '15m', '1h'],
+    relayOnly: true,
+    venues: []
   })
 });
 
@@ -63,7 +71,7 @@ export function feedPlan({ instrument = 'BTC-USD-SPOT', interval = '1m',
   if (!definition.intervals.includes(interval)) throw new RangeError('Interval unsupported by the chosen instrument');
   if (!Array.isArray(relays) || relays.length > MAX_RELAYS)
     throw new RangeError('Up to two opt-in relays are supported');
-  const venues = definition.venues.map(({ market, symbol }) => ({
+  const venues = (definition.relayOnly ? [] : definition.venues).map(({ market, symbol }) => ({
     id: market + ':' + symbol,
     kind: 'exchange', market, symbol, instrument, interval,
     label: market === 'spot' ? 'BINANCE SPOT' : market === 'futures' ?
@@ -78,6 +86,8 @@ export function feedPlan({ instrument = 'BTC-USD-SPOT', interval = '1m',
       market: 'relay', symbol: instrument, instrument, interval, label: 'RELAY ' + (index + 1) };
   });
   const sources = [...venues, ...normalizedRelays];
+  // A relay-only instrument with no configured relay has no source at all.
+  if (definition.relayOnly && sources.length === 0) return sources;
   if (preferred !== null && preferred !== undefined && preferred !== '') {
     const priority = sources.findIndex(source =>
       source.market === preferred || source.id === preferred);

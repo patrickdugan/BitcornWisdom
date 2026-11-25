@@ -128,3 +128,21 @@ test('an explicitly opted-in relay may be primary, while source identity stays b
   assert.deepEqual(feedPlan({instrument:'BTC-USD-SPOT',preferred:'coinbase'}).map(x=>x.market),
     ['coinbase','kraken']);
 });
+
+test('relay-only instruments have no exchange sources and need a relay', () => {
+  const def = resolveInstrument('SHZ-BTCUSD-INV');
+  assert.equal(def.relayOnly, true);
+  assert.equal(def.quote, 'USD');
+  assert.deepEqual(def.intervals, ['1m', '5m', '15m', '1h']);
+  assert.deepEqual(feedPlan({ instrument: 'SHZ-BTCUSD-INV' }), []);
+  assert.deepEqual(feedPlan({ instrument: 'SHZ-BTCUSD-INV', preferred: 'relay:1' }), []);
+  const plan = feedPlan({ instrument: 'SHZ-BTCUSD-INV', preferred: 'relay:1',
+    relays: ['http://127.0.0.1:8095'], allowLocal: true });
+  assert.deepEqual(plan.map(x => x.kind), ['relay']);
+  assert.equal(plan[0].instrument, 'SHZ-BTCUSD-INV');
+  assert.throws(() => feedPlan({ instrument: 'SHZ-BTCUSD-INV', preferred: 'kraken',
+    relays: ['https://v.example.org'] }), /incompatible/);
+  assert.throws(() => feedPlan({ instrument: 'SHZ-BTCUSD-INV', interval: '1d' }), /Interval unsupported/);
+  for (const [id, d] of Object.entries(INSTRUMENTS))
+    if (id !== 'SHZ-BTCUSD-INV') assert.ok(!d.relayOnly && d.venues.length > 0);
+});
